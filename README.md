@@ -31,7 +31,7 @@ A cross-platform GUI launcher for **Nova DSO Tracker**. This tool simplifies the
 ### Windows, Linux
 under development
 
-## 🛠️ Development
+##  Development
 
 If you want to run the launcher from source or build it yourself:
 
@@ -69,7 +69,7 @@ python3 -m PyInstaller --noconfirm "Nova DSO Tracker.spec"
 pyinstaller --noconfirm --onefile --windowed --name "Nova DSO Tracker" --add-data "nova_logo.png;." --icon "nova_logo.ico" nova_manager.py
 ```
 
-## 🔗 Links
+##  Links
 
 * **Main Project:** [Nova DSO Tracker](https://github.com/mrantonsg/nova-dso-tracker)
 * **Docker Image:** [mrantonsg/nova-dso-tracker](https://hub.docker.com/r/mrantonsg/nova-dso-tracker)
