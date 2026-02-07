@@ -1,5 +1,7 @@
 # Nova DSO Tracker Launcher
 
+<img src="nova_logo.png" alt="Nova DSO Tracker Logo" width="120">
+
 A cross-platform GUI launcher for **Nova DSO Tracker**. This tool simplifies the installation and management of the Docker-based Nova tracker, providing a one-click experience for macOS, Windows, and Linux users.
 
 ---
@@ -27,7 +29,9 @@ A cross-platform GUI launcher for **Nova DSO Tracker**. This tool simplifies the
     * *Note: On first launch, you may need to right-click > Open if the app is unsigned.*
 
 ### Windows, Linux
-in development
+under development
+
+## 🛠️ Development
 
 If you want to run the launcher from source or build it yourself:
 
@@ -44,3 +48,31 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt  # (Create this file with: tkinter is usually built-in, but pip install pyinstaller is needed)
 pip install pyinstaller
+```
+
+### 2. Run from Source
+```bash
+python3 nova_manager.py
+```
+
+### 3. Build Executables
+
+**macOS Build:**
+```bash
+# Ensure nova_logo.icns exists
+python3 -m PyInstaller --noconfirm "Nova DSO Tracker.spec"
+```
+
+**Windows Build:**
+*Note: Requires `nova_logo.ico` instead of `.icns`*
+```powershell
+pyinstaller --noconfirm --onefile --windowed --name "Nova DSO Tracker" --add-data "nova_logo.png;." --icon "nova_logo.ico" nova_manager.py
+```
+
+## 🔗 Links
+
+* **Main Project:** [Nova DSO Tracker](https://github.com/mrantonsg/nova-dso-tracker)
+* **Docker Image:** [mrantonsg/nova-dso-tracker](https://hub.docker.com/r/mrantonsg/nova-dso-tracker)
+
+---
+Copyright © 2026 mrantonsg
