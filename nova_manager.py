@@ -1,3 +1,4 @@
+import shutil
 import tkinter as tk
 from tkinter import ttk, filedialog
 import subprocess
@@ -28,6 +29,7 @@ SUBTEXT_COLOR = "#666666"
 SUCCESS_COLOR = "#4CD964"
 WARNING_COLOR = "#FF9500"
 GRAY_DOT = "#C7C7CC"
+DANGER_COLOR = "#D35454"  # Same as NOVA_RED, or choose a brighter red like "#FF3B30"
 
 
 class ModernButton(tk.Canvas):
@@ -82,6 +84,15 @@ class NovaManagerApp:
 
     def __init__(self, root):
         self.root = root
+
+        # --- FIX ENV PATH ---
+        # Bundled apps run in a restricted environment. We must manually add
+        # common Docker paths so shutil.which() can find the executable.
+        if sys.platform == "darwin":
+            # Intel Mac & Apple Silicon paths
+            os.environ["PATH"] += os.pathsep + "/usr/local/bin" + os.pathsep + "/opt/homebrew/bin"
+        # --------------------
+
         self.root.title("Nova DSO Tracker Launcher")
         self.root.geometry("500x450")  # Slightly shorter now that logs are gone
         self.root.resizable(False, False)
@@ -94,6 +105,7 @@ class NovaManagerApp:
                 print(f"Error creating install dir: {e}")
 
         self.is_processing = False
+        self.just_installed = False  # Track if this is a fresh install
         self.stop_event = threading.Event()
 
         self.setup_ui()
@@ -124,7 +136,6 @@ class NovaManagerApp:
 
         # Title Block
         title_frame = tk.Frame(header, bg=BG_COLOR)
-        # anchor="center" vertically aligns the text block relative to the logo
         title_frame.pack(side=tk.LEFT, anchor="center")
         tk.Label(title_frame, text=APP_NAME, font=("Helvetica", 20, "bold"), bg=BG_COLOR, fg=TEXT_COLOR).pack(
             anchor="w")
@@ -144,9 +155,9 @@ class NovaManagerApp:
         self.content_frame = tk.Frame(self.root, bg=BG_COLOR)
         self.content_frame.pack(fill=tk.BOTH, expand=True, padx=20)
 
-        # Center Status Text
+        # Center Status Text (FIXED: Added wraplength)
         self.lbl_center_info = tk.Label(self.content_frame, text="Checking status...", font=("Helvetica", 12),
-                                        bg=BG_COLOR, fg=SUBTEXT_COLOR)
+                                        bg=BG_COLOR, fg=SUBTEXT_COLOR, wraplength=400, justify="center")
         self.lbl_center_info.pack(pady=(30, 5))
 
         # Progress Bar
@@ -182,19 +193,18 @@ class NovaManagerApp:
         else:
             self.progress.stop()
             self.progress.pack_forget()
-            self.btn_main.set_state("normal")
-            self.btn_stop.set_state("normal")
+            # Do NOT enable buttons here. They will be enabled in _apply_ui_state
+            # after the text has been updated to the correct state.
             self.lbl_update.bind("<Button-1>", lambda e: self.check_update())
             self.lbl_update.config(fg=SUBTEXT_COLOR, cursor="hand2")
             self.lbl_center_info.config(text="")
 
     def run_command(self, command):
-        """Run command inside ~/nova with fixed environment."""
-        env = os.environ.copy()
-        env["PATH"] = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:" + env.get("PATH", "")
+        """Run command inside ~/nova using the globally fixed environment."""
         try:
+            # We now use os.environ (which we fixed in __init__) directly
             result = subprocess.run(
-                command, shell=True, cwd=INSTALL_PATH, env=env,
+                command, shell=True, cwd=INSTALL_PATH, env=os.environ,
                 capture_output=True, text=True
             )
             return result.stdout.strip()
@@ -226,21 +236,27 @@ class NovaManagerApp:
             time.sleep(3)  # Polling interval
 
     def check_state(self):
-        # 1. Check Docker
-        if "Docker version" not in self.run_command("docker --version"):
+        # 1. Check if Docker Application exists at all (User has never installed it)
+        if shutil.which("docker") is None:
             self.update_ui("docker_missing")
             return
 
-        # 2. Check File
+        # 2. Check if Docker Daemon is running (User has installed it, but not opened it)
+        # "Server Version" is only returned if the background service is active.
+        if "Server Version" not in self.run_command("docker info"):
+            self.update_ui("docker_stopped")
+            return
+
+        # 3. Check File (Is Nova Installed?)
         if not os.path.exists(os.path.join(INSTALL_PATH, "docker-compose.yml")):
             self.update_ui("not_installed")
             return
 
-        # 3. Check Container
+        # 4. Check Container Status (Is the specific Nova container running?)
         status = self.run_command(f'docker ps --filter "name={DOCKER_CONTAINER_NAME}" --format "{{{{.Status}}}}"')
 
         if "Up" in status:
-            # 4. Web Check
+            # 5. Web Check
             if self.check_web_ready():
                 self.update_ui("running")
             else:
@@ -254,10 +270,22 @@ class NovaManagerApp:
     def _apply_ui_state(self, state):
         if self.is_processing: return
 
+        # Reset both buttons to "normal" (restores original colors)
+        self.btn_main.set_state("normal")
+        self.btn_stop.set_state("normal")
+
         if state == "docker_missing":
             self.set_status("Docker Missing", DANGER_COLOR, "Docker Desktop is required.")
             self.btn_main.set_text("Download Docker")
             self.btn_main.command = self.open_docker
+            self.btn_main.set_color(NOVA_TEAL)
+            self.btn_stop.pack_forget()
+
+        elif state == "docker_stopped":
+            self.set_status("Docker Not Running", WARNING_COLOR, "Please open Docker Desktop to continue.")
+            self.btn_main.set_text("Launch Docker")  # <--- Changed Text
+            self.btn_main.command = self.launch_docker_app  # <--- Changed Command
+            self.btn_main.set_color(NOVA_TEAL)
             self.btn_stop.pack_forget()
 
         elif state == "not_installed":
@@ -275,7 +303,12 @@ class NovaManagerApp:
             self.btn_stop.pack_forget()
 
         elif state == "initializing":
-            self.set_status("Initializing...", WARNING_COLOR, "Starting up... (this may take a minute)")
+            if self.just_installed:
+                msg = "First-time setup: Web UI may take ~2 mins to initialize.\nSubsequent runs will be real-time."
+                self.set_status("Initializing...", WARNING_COLOR, msg)
+            else:
+                self.set_status("Initializing...", WARNING_COLOR, "Starting up... (this may take a minute)")
+
             self.btn_main.set_text("Open Dashboard")
             self.btn_main.command = self.open_dashboard
             self.btn_main.set_color(NOVA_TEAL)
@@ -283,6 +316,7 @@ class NovaManagerApp:
             self.btn_stop.pack(side=tk.LEFT, padx=10)
 
         elif state == "running":
+            self.just_installed = False  # Reset flag for future runs
             self.set_status("Nova Tracker is Active", SUCCESS_COLOR, "")
             self.lbl_center_info.config(text="")
             self.btn_main.set_text("Open Dashboard")
@@ -301,6 +335,7 @@ class NovaManagerApp:
         pass
 
     def install_nova(self):
+        self.just_installed = True  # Enable fresh install mode
         self.set_loading(True, "Initializing installation...")
         content = f"""
 services:
@@ -326,15 +361,22 @@ services:
         self.root.update_idletasks()
         self.run_command("docker compose pull")
 
-        # First-time specific message
         msg = "First-time setup: Web UI may take ~2 mins to initialize.\nSubsequent runs will be real-time."
         self.root.after(0, lambda: self.lbl_center_info.config(text=msg))
         self.root.update_idletasks()
         self.run_command("docker compose up -d")
 
-        time.sleep(3)
+        # Poll until Container is officially "Up" (max 30s)
+        for _ in range(30):
+            status = self.run_command(f'docker ps --filter "name={DOCKER_CONTAINER_NAME}" --format "{{{{.Status}}}}"')
+            if "Up" in status:
+                break
+            time.sleep(1)
+
+        # 1. Turn off loading flag
         self.root.after(0, lambda: self.set_loading(False))
-        self.check_state()
+        # 2. Check state
+        self.root.after(200, self.check_state)
 
     def start_nova(self):
         self.set_loading(True, "Starting service...")
@@ -355,6 +397,40 @@ services:
 
     def open_docker(self):
         webbrowser.open("https://www.docker.com/products/docker-desktop")
+
+    def launch_docker_app(self):
+        self.set_loading(True, "Launching Docker...")
+
+        def _launch_thread():
+            try:
+                if sys.platform == "darwin":  # macOS
+                    subprocess.run(["open", "-a", "Docker"])
+                elif sys.platform == "win32":  # Windows
+                    win_path = r"C:\Program Files\Docker\Docker\Docker Desktop.exe"
+                    if os.path.exists(win_path):
+                        os.startfile(win_path)
+                    else:
+                        subprocess.run(["start", "docker"], shell=True)
+                elif sys.platform == "linux":
+                    subprocess.run(["systemctl", "start", "docker"])
+            except Exception as e:
+                print(f"Launch failed: {e}")
+
+            # Poll until Docker is actually responsive (max 60s)
+            for _ in range(60):
+                if "Server Version" in self.run_command("docker info"):
+                    break
+                time.sleep(1)
+
+            # Tiny buffer for socket stability
+            time.sleep(2)
+
+            # 1. Turn off loading flag (hides spinner, buttons stay disabled)
+            self.root.after(0, lambda: self.set_loading(False))
+            # 2. Check state (updates text, then enables buttons)
+            self.root.after(200, self.check_state)
+
+        threading.Thread(target=_launch_thread).start()
 
     def check_update(self):
         self.lbl_update.config(text="Checking...", fg=NOVA_TEAL)
