@@ -1,0 +1,11 @@
+# Build Artifacts (Do NOT commit these)
+/build
+/dist
+
+# System Files
+.DS_Store
+__pycache__/
+*.pyc
+
+# IDE Settings
+.idea/
