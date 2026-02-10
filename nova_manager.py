@@ -438,10 +438,25 @@ services:
         threading.Thread(target=self._update_process).start()
 
     def _update_process(self):
-        self.run_command("docker compose pull")
+        # 1. Direct pull of the specific image tag to bypass Compose cache issues
+        self.run_command(f"docker pull {DOCKER_IMAGE}")
+
+        # 2. Stop the current container to ensure a clean swap
+        self.run_command("docker compose stop")
+
+        # 3. Force recreation to strictly use the new image hash
+        self.run_command("docker compose up -d --force-recreate")
+
+        # 4. Cleanup
+        self.run_command("docker image prune -f")
+
         time.sleep(1)
-        self.root.after(0, lambda: self.lbl_update.config(text="⟳ Update Check Complete", fg=SUCCESS_COLOR))
+        self.root.after(0, lambda: self.lbl_update.config(text="⟳ Update Applied", fg=SUCCESS_COLOR))
+
+        # Turn off loading and force a status check to reflect the new state
         self.root.after(0, lambda: self.set_loading(False))
+        self.root.after(200, self.check_state)
+
         time.sleep(3)
         self.root.after(0, lambda: self.lbl_update.config(text="⟳ Check for Updates", fg=SUBTEXT_COLOR))
 
