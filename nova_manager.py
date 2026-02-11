@@ -111,6 +111,8 @@ class NovaManagerApp:
         # --- FIX ENV PATH ---
         if sys.platform == "darwin":
             os.environ["PATH"] += os.pathsep + "/usr/local/bin" + os.pathsep + "/opt/homebrew/bin"
+        elif sys.platform == "linux":
+            os.environ["PATH"] += os.pathsep + "/usr/local/bin" + os.pathsep + "/snap/bin"
 
         self.root.title("Nova DSO Tracker Launcher")
         self.root.geometry("500x580")
@@ -570,33 +572,64 @@ class NovaManagerApp:
         webbrowser.open(DOCKER_DOWNLOAD_URL)
 
     def launch_docker_app(self):
+        # Don't try to launch if Docker isn't installed at all
+        if shutil.which("docker") is None:
+            messagebox.showwarning("Docker Not Found",
+                                   "Docker is not installed on this system.\n\n"
+                                   "Please install Docker first.")
+            self.open_docker()
+            return
+
         self.set_loading(True, "Launching Docker...")
 
         def _launch_thread():
+            launched = False
             try:
                 if sys.platform == "darwin":
                     subprocess.run(["open", "-a", "Docker"])
+                    launched = True
                 elif sys.platform == "win32":
                     win_path = r"C:\Program Files\Docker\Docker\Docker Desktop.exe"
                     if os.path.exists(win_path):
                         os.startfile(win_path)
+                        launched = True
                     else:
                         subprocess.run(["start", "docker"], shell=True)
+                        launched = True
                 elif sys.platform == "linux":
-                    subprocess.run(["systemctl", "start", "docker"])
+                    result = subprocess.run(["systemctl", "start", "docker"],
+                                            capture_output=True, text=True)
+                    if result.returncode == 0:
+                        launched = True
+                    else:
+                        self._append_log(f"[error] systemctl start docker failed: {result.stderr.strip()}")
             except Exception as e:
                 self._append_log(f"[error] Docker launch failed: {e}")
 
+            if not launched:
+                self.root.after(0, lambda: self.set_loading(False))
+                self.root.after(0, lambda: messagebox.showwarning("Launch Failed",
+                    "Could not start Docker.\n\nPlease start Docker manually."))
+                return
+
+            # Poll until Docker is responsive (max 60s)
+            docker_ready = False
             for _ in range(60):
                 if self.stop_event.is_set():
                     return
                 stdout = self._run_command_compat("docker info", timeout=10)
                 if "Server Version" in stdout:
+                    docker_ready = True
                     break
                 time.sleep(1)
 
             time.sleep(2)
             self.root.after(0, lambda: self.set_loading(False))
+
+            if not docker_ready:
+                self.root.after(0, lambda: messagebox.showwarning("Timeout",
+                    "Docker did not start within 60 seconds.\n\nPlease start Docker manually and try again."))
+
             self.root.after(200, self.check_state)
 
         threading.Thread(target=_launch_thread).start()
