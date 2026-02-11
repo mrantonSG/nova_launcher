@@ -369,9 +369,17 @@ class NovaManagerApp:
             return
 
         # 2. Docker daemon running?
-        stdout = self._run_command_compat("docker info", timeout=10)
+        stdout, stderr, rc = self.run_command("docker info", timeout=10)
         if "Server Version" not in stdout:
-            self.update_ui("docker_stopped")
+            # Distinguish "not running" from "not properly installed"
+            # If Docker can't connect to daemon, it's stopped but installed
+            # If it errors out completely, treat as missing
+            if rc != 0 and ("connect" not in stderr.lower()
+                            and "daemon" not in stderr.lower()
+                            and "is the docker daemon running" not in stderr.lower()):
+                self.update_ui("docker_missing")
+            else:
+                self.update_ui("docker_stopped")
             return
 
         # 3. Nova installed?
