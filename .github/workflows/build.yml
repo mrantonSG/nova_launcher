@@ -1,0 +1,107 @@
+name: Build Nova Launcher
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Build macOS app
+        run: python -m PyInstaller --noconfirm "Nova DSO Tracker.spec"
+
+      - name: Zip app bundle
+        run: cd dist && zip -r "Nova-DSO-Tracker-macOS.zip" "Nova DSO Tracker.app"
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nova-DSO-Tracker-macOS
+          path: dist/Nova-DSO-Tracker-macOS.zip
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Build Windows executable
+        run: >
+          pyinstaller --noconfirm --onefile --windowed
+          --name "Nova DSO Tracker"
+          --add-data "nova_logo.png;."
+          nova_manager.py
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nova-DSO-Tracker-Windows
+          path: dist/Nova DSO Tracker.exe
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y python3-tk
+
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Build Linux executable
+        run: >
+          pyinstaller --noconfirm --onefile
+          --name "nova-dso-tracker"
+          --add-data "nova_logo.png:."
+          nova_manager.py
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nova-DSO-Tracker-Linux
+          path: dist/nova-dso-tracker
+
+  release:
+    needs: [build-macos, build-windows, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            Nova-DSO-Tracker-macOS/Nova-DSO-Tracker-macOS.zip
+            Nova-DSO-Tracker-Windows/Nova DSO Tracker.exe
+            Nova-DSO-Tracker-Linux/nova-dso-tracker

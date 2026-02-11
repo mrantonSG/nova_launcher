@@ -49,7 +49,7 @@ app = BUNDLE(
     icon='nova_logo.icns',
     bundle_identifier='com.mrantonsg.nova-dso-tracker',
     info_plist={
-        'CFBundleShortVersionString': '1.1.0',
+        'CFBundleShortVersionString': '1.2.0',
         'CFBundleVersion': '1',
         'NSHighResolutionCapable': 'True',
         'NSHumanReadableCopyright': 'Copyright © 2026 mrantonsg. https://nova-tracker.com'
