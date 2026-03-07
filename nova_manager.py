@@ -1029,4 +1029,7 @@ class NovaManagerApp:
 if __name__ == "__main__":
     root = ctk.CTk()
     app = NovaManagerApp(root)
-    root.mainloop()
+    try:
+        root.mainloop()
+    except KeyboardInterrupt:
+        pass
