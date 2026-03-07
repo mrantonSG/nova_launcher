@@ -9,11 +9,17 @@ and Docker Hub API interactions.
 import json
 import os
 import shutil
+import ssl
 import subprocess
 import time
 import urllib.request
 import urllib.error
 from typing import Optional, Tuple, Dict, Any
+
+import certifi
+
+# SSL context for HTTPS requests (uses certifi's bundled certificates)
+_SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
 from config import (
     DOCKER_IMAGE,
@@ -368,7 +374,7 @@ def check_dockerhub_version() -> Tuple[bool, Optional[str], Optional[str]]:
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=10) as response:
+            with urllib.request.urlopen(req, timeout=10, context=_SSL_CONTEXT) as response:
                 data = json.loads(response.read().decode())
 
                 # Get the digest from Docker Hub response
