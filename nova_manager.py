@@ -37,7 +37,6 @@ ctk.set_default_color_theme(_resource_path("assets/nova_theme.json"))
 
 # Import from refactored modules
 from config import (
-    APP_NAME,
     APP_VERSION,
     DOCKER_CONTAINER_NAME,
     DOCKER_IMAGE,
@@ -157,7 +156,7 @@ class NovaManagerApp:
 
         # Nova Wordmark - text-based logo (no image file needed)
         wordmark_frame = ctk.CTkFrame(header, fg_color="transparent")
-        wordmark_frame.pack(side=tk.LEFT, padx=(0, 15))
+        wordmark_frame.pack(side=tk.LEFT)
 
         # "Nova" in bold teal
         lbl_nova = ctk.CTkLabel(
@@ -177,24 +176,20 @@ class NovaManagerApp:
         )
         lbl_tracker.pack(side=tk.LEFT)
 
-        # Title Block
-        title_frame = ctk.CTkFrame(header, fg_color="transparent")
-        title_frame.pack(side=tk.LEFT, anchor="center")
-        ctk.CTkLabel(
-            title_frame,
-            text=APP_NAME,
-            font=("DM Sans", 20, "bold")
-        ).pack(anchor="w")
+        # Right side: Status dot + status text
+        status_frame = ctk.CTkFrame(header, fg_color="transparent")
+        status_frame.pack(side=tk.RIGHT)
+
         self.lbl_status_header = ctk.CTkLabel(
-            title_frame,
+            status_frame,
             text="Initializing...",
             font=("DM Sans", 13)
         )
-        self.lbl_status_header.pack(anchor="w")
+        self.lbl_status_header.pack(side=tk.RIGHT, padx=(0, 8))
 
         # Status Dot (using label with unicode)
         self.lbl_dot = ctk.CTkLabel(
-            header,
+            status_frame,
             text="●",
             font=("DM Sans", 14),
             text_color=STATUS_STOPPED
