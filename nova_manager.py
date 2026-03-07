@@ -16,9 +16,10 @@ import urllib.request
 import json
 import os
 import sys
+from PIL import Image
 
 # Set CustomTkinter appearance before any widget creation
-ctk.set_appearance_mode("dark")
+ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("assets/nova_theme.json")
 
 # Import from refactored modules
@@ -69,35 +70,23 @@ from utils import (
     version_newer,
 )
 
-# --- Nova Design System Colors ---
-NOVA_TEAL_LIGHT = "#83b4c5"
-NOVA_TEAL_DARK = "#8ec8da"
-NOVA_TEAL_HOVER_LIGHT = "#6a9eb0"
-NOVA_TEAL_HOVER_DARK = "#7ab8cc"
+# --- Nova Design System Colors (Light Mode Only) ---
+NOVA_TEAL = "#83b4c5"
+NOVA_TEAL_HOVER = "#6a9eb0"
 
-DANGER_LIGHT = "#a04040"
-DANGER_DARK = "#d06060"
-DANGER_BG_LIGHT = "#faf6f6"
-DANGER_BG_DARK = "#2a2222"
-DANGER_HOVER_LIGHT = "#f5e8e8"
-DANGER_HOVER_DARK = "#3a2828"
-DANGER_BORDER_LIGHT = "#e8c8c8"
-DANGER_BORDER_DARK = "#6a4040"
+DANGER = "#a04040"
+DANGER_BG = "#faf6f6"
+DANGER_HOVER = "#f5e8e8"
+DANGER_BORDER = "#e8c8c8"
 
 GHOST_BG = "transparent"
-GHOST_HOVER_LIGHT = "#f7f5f2"
-GHOST_HOVER_DARK = "#1c2230"
-GHOST_TEXT_LIGHT = "#4a4a4a"
-GHOST_TEXT_DARK = "#8c8c8c"
-GHOST_BORDER_LIGHT = "#d0cdc8"
-GHOST_BORDER_DARK = "#3a3a3a"
+GHOST_HOVER = "#f7f5f2"
+GHOST_TEXT = "#4a4a4a"
+GHOST_BORDER = "#d0cdc8"
 
-STATUS_RUNNING_LIGHT = "#83b4c5"
-STATUS_RUNNING_DARK = "#8ec8da"
-STATUS_STOPPED_LIGHT = "#888888"
-STATUS_STOPPED_DARK = "#555555"
-STATUS_ERROR_LIGHT = "#a04040"
-STATUS_ERROR_DARK = "#d06060"
+STATUS_RUNNING = "#83b4c5"
+STATUS_STOPPED = "#888888"
+STATUS_ERROR = "#a04040"
 
 # Log viewer memory limit
 MAX_LOG_LINES = 500
@@ -132,6 +121,7 @@ class NovaManagerApp:
         self.stop_event = threading.Event()
         self.log_lines = []
         self.pending_update_digest = None
+        self._update_check_done = False  # Track if Docker Hub check was performed this session
 
         self.setup_ui()
 
@@ -147,28 +137,26 @@ class NovaManagerApp:
         self.stop_event.set()
         self.root.destroy()
 
-    def _get_appearance_mode(self):
-        """Get current appearance mode ('Light' or 'Dark')."""
-        return ctk.get_appearance_mode()
-
-    def _is_dark_mode(self):
-        """Check if dark mode is active."""
-        return self._get_appearance_mode() == "Dark"
-
     def setup_ui(self):
         # --- Header ---
         header = ctk.CTkFrame(self.root, fg_color="transparent")
         header.pack(fill=tk.X, padx=30, pady=(30, 20))
 
-        # Logo
+        # Logo - use CTkImage for HighDPI scaling on all platforms
         try:
             img_path = resource_path("nova_logo.png")
-            self.logo_img = tk.PhotoImage(file=img_path)
-            img_h = self.logo_img.height()
+            pil_image = Image.open(img_path)
+            # Scale down if height > 70
+            img_h = pil_image.height
             if img_h > 70:
-                factor = img_h // 70
-                if factor > 1:
-                    self.logo_img = self.logo_img.subsample(factor, factor)
+                scale_factor = 70 / img_h
+                new_width = int(pil_image.width * scale_factor)
+                new_height = 70
+                pil_image = pil_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            else:
+                new_width = pil_image.width
+                new_height = pil_image.height
+            self.logo_img = ctk.CTkImage(light_image=pil_image, size=(new_width, new_height))
             lbl_logo = ctk.CTkLabel(header, image=self.logo_img, text="")
             lbl_logo.pack(side=tk.LEFT, padx=(0, 15))
         except Exception:
@@ -176,7 +164,7 @@ class NovaManagerApp:
                 header,
                 text="N",
                 font=("DM Sans", 45, "bold"),
-                text_color=NOVA_TEAL_DARK if self._is_dark_mode() else NOVA_TEAL_LIGHT
+                text_color=NOVA_TEAL
             )
             lbl_logo.pack(side=tk.LEFT, padx=(0, 15))
 
@@ -200,12 +188,12 @@ class NovaManagerApp:
             header,
             text="●",
             font=("DM Sans", 14),
-            text_color=STATUS_STOPPED_DARK if self._is_dark_mode() else STATUS_STOPPED_LIGHT
+            text_color=STATUS_STOPPED
         )
         self.lbl_dot.pack(side=tk.RIGHT)
 
         # Divider
-        divider = ctk.CTkFrame(self.root, height=1, fg_color=["#e5e2dc", "#252525"])
+        divider = ctk.CTkFrame(self.root, height=1, fg_color="#e5e2dc")
         divider.pack(fill=tk.X, pady=(0, 10))
 
         # --- Content Area ---
@@ -273,7 +261,7 @@ class NovaManagerApp:
             log_header,
             text="Show",
             font=("DM Sans", 10),
-            text_color=NOVA_TEAL_DARK if self._is_dark_mode() else NOVA_TEAL_LIGHT,
+            text_color=NOVA_TEAL,
             cursor="hand2"
         )
         self.log_toggle_btn.pack(side=tk.RIGHT)
@@ -308,17 +296,17 @@ class NovaManagerApp:
             footer,
             text=f"Launcher v{APP_VERSION}",
             font=("DM Sans", 9),
-            text_color=["#888888", "#666666"]
+            text_color="#888888"
         )
         self.lbl_launcher_ver.pack(side=tk.BOTTOM)
 
         # Launcher update banner (hidden by default)
-        self.update_banner = ctk.CTkFrame(footer, fg_color=["#E8F5E9", "#1a3d1f"])
+        self.update_banner = ctk.CTkFrame(footer, fg_color="#E8F5E9")
         self.lbl_update_banner = ctk.CTkLabel(
             self.update_banner,
             text="",
             font=("DM Sans", 10),
-            text_color=["#2E7D32", "#4CAF50"],
+            text_color="#2E7D32",
             cursor="hand2"
         )
         self.lbl_update_banner.pack(padx=10, pady=5)
@@ -332,11 +320,11 @@ class NovaManagerApp:
             width=width,
             height=height,
             font=("DM Sans", 13, "bold"),
-            fg_color=[DANGER_BG_LIGHT, DANGER_BG_DARK],
-            hover_color=[DANGER_HOVER_LIGHT, DANGER_HOVER_DARK],
-            text_color=[DANGER_LIGHT, DANGER_DARK],
+            fg_color=DANGER_BG,
+            hover_color=DANGER_HOVER,
+            text_color=DANGER,
             border_width=1,
-            border_color=[DANGER_BORDER_LIGHT, DANGER_BORDER_DARK]
+            border_color=DANGER_BORDER
         )
 
     def _create_ghost_button(self, parent, text, command, width=110, height=38):
@@ -349,10 +337,10 @@ class NovaManagerApp:
             height=height,
             font=("DM Sans", 12),
             fg_color="transparent",
-            hover_color=[GHOST_HOVER_LIGHT, GHOST_HOVER_DARK],
-            text_color=[GHOST_TEXT_LIGHT, GHOST_TEXT_DARK],
+            hover_color=GHOST_HOVER,
+            text_color=GHOST_TEXT,
             border_width=1,
-            border_color=[GHOST_BORDER_LIGHT, GHOST_BORDER_DARK]
+            border_color=GHOST_BORDER
         )
 
     def _create_primary_button(self, parent, text, command, width=140, height=38):
@@ -364,8 +352,8 @@ class NovaManagerApp:
             width=width,
             height=height,
             font=("DM Sans", 13, "bold"),
-            fg_color=[NOVA_TEAL_LIGHT, NOVA_TEAL_DARK],
-            hover_color=[NOVA_TEAL_HOVER_LIGHT, NOVA_TEAL_HOVER_DARK],
+            fg_color=NOVA_TEAL,
+            hover_color=NOVA_TEAL_HOVER,
             text_color="#ffffff",
             border_width=0
         )
@@ -408,13 +396,13 @@ class NovaManagerApp:
             self.btn_main.configure(state="disabled")
             self.btn_stop.configure(state="disabled")
             self.lbl_update.unbind("<Button-1>")
-            self.lbl_update.configure(text_color=["#AAAAAA", "#4d4d4d"], cursor="")
+            self.lbl_update.configure(text_color="#AAAAAA", cursor="")
         else:
             self.progress.stop()
             self.progress.pack_forget()
             self.lbl_update.bind("<Button-1>", lambda e: self.check_update())
             self.lbl_update.configure(
-                text_color=[NOVA_TEAL_LIGHT, NOVA_TEAL_DARK] if self._is_dark_mode() else ["#666666", "#8c8c8c"],
+                text_color=NOVA_TEAL,
                 cursor="hand2"
             )
             self.lbl_center_info.configure(text="")
@@ -474,8 +462,9 @@ class NovaManagerApp:
             return
 
         # 3. Check for Docker Hub updates (non-blocking, after daemon check)
-        # Only check if we haven't already prompted about an update
-        if self.pending_update_digest is None:
+        # Only check ONCE per session, before container is launched
+        if not self._update_check_done:
+            self._update_check_done = True
             threading.Thread(target=self._check_image_update_background, daemon=True).start()
 
         # 4. Nova installed?
@@ -602,6 +591,9 @@ class NovaManagerApp:
         def _update_thread():
             self._append_log("Pulling latest image...")
 
+            # Store the digest before pulling to save as skipped after success
+            digest_to_skip = self.pending_update_digest
+
             # Pull the image
             success, msg = pull_image()
             if not success:
@@ -609,6 +601,10 @@ class NovaManagerApp:
                 self.root.after(0, lambda: self.set_loading(False))
                 self.pending_update_digest = None
                 return
+
+            # Save the new digest as skipped so we don't prompt again for this version
+            if digest_to_skip:
+                set_skipped_digest(digest_to_skip)
 
             # Stop and recreate container
             self._append_log("Recreating container...")
@@ -640,7 +636,7 @@ class NovaManagerApp:
         self.btn_stop.configure(state="normal")
 
         if state == "docker_missing":
-            self.set_status("Docker Missing", STATUS_ERROR_DARK if self._is_dark_mode() else STATUS_ERROR_LIGHT,
+            self.set_status("Docker Missing", STATUS_ERROR,
                             "Docker Desktop is required to run Nova.\n\n"
                             "Click below to download it. Once installed,\n"
                             "open Docker Desktop and return here.")
@@ -650,7 +646,7 @@ class NovaManagerApp:
             self.lbl_version.configure(text="")
 
         elif state == "docker_stopped":
-            self.set_status("Docker Not Running", STATUS_ERROR_DARK if self._is_dark_mode() else "#FF9500",
+            self.set_status("Docker Not Running", "#FF9500",
                             "Please open Docker Desktop to continue.")
             self.btn_main.configure(text="Launch Docker", command=self.launch_docker_app)
             self._style_button_primary(self.btn_main)
@@ -658,7 +654,7 @@ class NovaManagerApp:
             self.lbl_version.configure(text="")
 
         elif state == "not_installed":
-            self.set_status("Not Installed", STATUS_STOPPED_DARK if self._is_dark_mode() else STATUS_STOPPED_LIGHT,
+            self.set_status("Not Installed", STATUS_STOPPED,
                             f"Install location: {NOVA_DIR}")
             self.btn_main.configure(text="Install Nova", command=self.install_nova)
             self._style_button_primary(self.btn_main)
@@ -666,7 +662,7 @@ class NovaManagerApp:
             self.lbl_version.configure(text="")
 
         elif state == "stopped":
-            self.set_status("Service Stopped", "#FF9500" if self._is_dark_mode() else "#FF9500",
+            self.set_status("Service Stopped", "#FF9500",
                             "Service is stopped.")
             self.btn_main.configure(text="Start Tracker", command=self.start_nova)
             self._style_button_primary(self.btn_main)
@@ -686,7 +682,7 @@ class NovaManagerApp:
 
         elif state == "running":
             self.just_installed = False
-            self.set_status("Nova Tracker is Active", STATUS_RUNNING_DARK if self._is_dark_mode() else STATUS_RUNNING_LIGHT, "")
+            self.set_status("Nova Tracker is Active", STATUS_RUNNING, "")
             self.lbl_center_info.configure(text="")
             self.btn_main.configure(text="Open Dashboard", command=self.open_dashboard)
             self._style_button_primary(self.btn_main)
@@ -696,8 +692,8 @@ class NovaManagerApp:
     def _style_button_primary(self, btn):
         """Apply primary button styling."""
         btn.configure(
-            fg_color=[NOVA_TEAL_LIGHT, NOVA_TEAL_DARK],
-            hover_color=[NOVA_TEAL_HOVER_LIGHT, NOVA_TEAL_HOVER_DARK],
+            fg_color=NOVA_TEAL,
+            hover_color=NOVA_TEAL_HOVER,
             text_color="#ffffff",
             border_width=0
         )
@@ -872,7 +868,7 @@ class NovaManagerApp:
         threading.Thread(target=_launch_thread).start()
 
     def check_update(self):
-        self.lbl_update.configure(text="Checking...", text_color=[NOVA_TEAL_LIGHT, NOVA_TEAL_DARK])
+        self.lbl_update.configure(text="Checking...", text_color=NOVA_TEAL)
         self.set_loading(True, "Checking for updates...")
         threading.Thread(target=self._update_process).start()
 
@@ -899,7 +895,7 @@ class NovaManagerApp:
         time.sleep(1)
         self.root.after(0, lambda: self.lbl_update.configure(
             text="↻ Update Applied",
-            text_color=["#4CD964", "#4CAF50"]
+            text_color="#4CD964"
         ))
 
         self.root.after(0, lambda: self.set_loading(False))
