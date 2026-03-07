@@ -58,6 +58,7 @@ jobs:
           --name "Nova DSO Tracker"
           --add-data "nova_logo.png;."
           --add-data "assets;assets"
+          --hidden-import PIL._tkinter_finder
           --icon "nova_logo.ico"
           nova_manager.py
 
@@ -91,6 +92,7 @@ jobs:
           --name "nova-dso-tracker"
           --add-data "nova_logo.png:."
           --add-data "assets:assets"
+          --hidden-import PIL._tkinter_finder
           nova_manager.py
 
       - name: Upload Linux artifact
