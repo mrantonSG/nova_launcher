@@ -105,31 +105,24 @@ def open_dashboard() -> None:
     """
     Open the Nova dashboard in the default browser and bring it to foreground.
 
-    Opens the URL using webbrowser.open(), then attempts to bring the browser
-    window to the foreground using platform-specific methods. If the focus
-    operation fails, the URL will still have opened - the focus is a best-effort
-    enhancement.
+    Uses platform-specific methods to open the URL and bring the browser to front.
+    On macOS, uses the 'open' command which respects the default browser.
+    On Linux and Windows, opens via webbrowser.open() then attempts focus.
+    If the focus operation fails, the URL will still have opened - focus is a
+    best-effort enhancement.
     """
-    # Open the URL first (existing behavior)
-    webbrowser.open(DASHBOARD_URL)
-
-    # Try to bring browser to foreground (platform-specific, fail silently)
     try:
         if sys.platform == "darwin":
-            # macOS: Use osascript to activate the frontmost browser
+            # macOS: Use 'open' command - respects default browser and brings to front
             subprocess.Popen(
-                [
-                    "osascript", "-e",
-                    'tell application "System Events" to set frontmost of '
-                    '(first process whose name contains "Chrome" or name contains "Firefox" '
-                    'or name contains "Safari") to true'
-                ],
+                ["open", DASHBOARD_URL],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
             )
 
         elif sys.platform == "linux":
-            # Linux: Use wmctrl if available
+            # Linux: Open via webbrowser, then try to bring to front with wmctrl
+            webbrowser.open(DASHBOARD_URL)
             if shutil.which("wmctrl"):
                 subprocess.Popen(
                     ["wmctrl", "-a", "browser"],
@@ -138,7 +131,8 @@ def open_dashboard() -> None:
                 )
 
         elif sys.platform == "win32":
-            # Windows: Use PowerShell to activate browser window
+            # Windows: Open via webbrowser, then try to activate with PowerShell
+            webbrowser.open(DASHBOARD_URL)
             subprocess.Popen(
                 [
                     "powershell", "-command",
@@ -149,5 +143,5 @@ def open_dashboard() -> None:
                 stderr=subprocess.DEVNULL
             )
     except Exception:
-        # Fail silently - URL already opened via webbrowser.open()
+        # Fail silently - URL may still have opened
         pass
