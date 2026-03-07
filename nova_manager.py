@@ -74,7 +74,6 @@ from docker_ops import (
     set_skipped_digest,
 )
 from utils import (
-    resource_path,
     check_web_ready,
     version_newer,
     open_dashboard as open_dashboard_url,
@@ -154,7 +153,7 @@ class NovaManagerApp:
 
         # Logo - use CTkImage for HighDPI scaling on all platforms
         try:
-            img_path = resource_path("nova_logo.png")
+            img_path = _resource_path("nova_logo.png")
             pil_image = Image.open(img_path)
             # Scale down if height > 70
             img_h = pil_image.height
@@ -169,7 +168,9 @@ class NovaManagerApp:
             self.logo_img = ctk.CTkImage(light_image=pil_image, size=(new_width, new_height))
             lbl_logo = ctk.CTkLabel(header, image=self.logo_img, text="")
             lbl_logo.pack(side=tk.LEFT, padx=(0, 15))
-        except Exception:
+        except Exception as e:
+            # Log the error for debugging PyInstaller builds
+            print(f"[WARN] Failed to load logo: {e}")
             lbl_logo = ctk.CTkLabel(
                 header,
                 text="N",
