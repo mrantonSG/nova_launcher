@@ -10,7 +10,7 @@ a = Analysis(
         ('assets', 'assets'),
         (certifi.where(), '.'),  # Bundle certifi's CA certificates for SSL
     ],
-    hiddenimports=[],
+    hiddenimports=['PIL._tkinter_finder'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -53,7 +53,7 @@ app = BUNDLE(
     icon='nova_logo.icns',
     bundle_identifier='com.mrantonsg.nova-dso-tracker',
     info_plist={
-        'CFBundleShortVersionString': '1.2.3',
+        'CFBundleShortVersionString': '1.2.4',
         'CFBundleVersion': '1',
         'NSHighResolutionCapable': 'True',
         'NSHumanReadableCopyright': 'Copyright © 2026 mrantonsg. https://nova-tracker.com'
