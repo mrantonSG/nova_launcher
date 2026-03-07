@@ -259,22 +259,29 @@ def recreate_container() -> Tuple[bool, str]:
 
 def get_local_image_digest() -> Optional[str]:
     """
-    Get the digest of the locally pulled image.
+    Get the registry digest of the locally pulled image.
+
+    Uses .RepoDigests which contains the actual registry digest that was
+    saved when the image was pulled. This is different from .Id which is
+    the image config digest.
 
     Returns:
-        The image digest (sha256 hash) or None if not found
+        The registry digest (sha256 hash) or None if not found
     """
     stdout, stderr, rc = run_command(
         [
             "docker", "image", "inspect",
             DOCKER_IMAGE_FULL,
-            "--format", "{{.Id}}",
+            "--format", "{{index .RepoDigests 0}}",
         ],
         timeout=DOCKER_INFO_TIMEOUT,
     )
 
     if rc == 0 and stdout:
-        # Docker returns digest as "sha256:abc123..." or just "abc123..."
+        # RepoDigests format is "image@sha256:abc123..." - extract just the digest
+        if "@" in stdout:
+            return stdout.split("@")[1]
+        # Fallback: if format is unexpected, return as-is
         if stdout.startswith("sha256:"):
             return stdout
         return f"sha256:{stdout}" if len(stdout) >= 12 else stdout
