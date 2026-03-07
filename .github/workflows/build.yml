@@ -17,8 +17,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install PyInstaller
-        run: pip install pyinstaller
+      - name: Install dependencies
+        run: |
+          pip install pyinstaller
+          pip install -r requirements.txt
 
       - name: Build macOS app
         run: python -m PyInstaller --noconfirm "Nova DSO Tracker.spec"
@@ -42,14 +44,21 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install PyInstaller
-        run: pip install pyinstaller
+      - name: Install dependencies
+        run: |
+          pip install pyinstaller
+          pip install -r requirements.txt
+
+      - name: Generate Windows icon
+        run: python generate_icons.py
 
       - name: Build Windows executable
         run: >
           pyinstaller --noconfirm --onefile --windowed
           --name "Nova DSO Tracker"
           --add-data "nova_logo.png;."
+          --add-data "assets;assets"
+          --icon "nova_logo.ico"
           nova_manager.py
 
       - name: Upload Windows artifact
@@ -69,16 +78,19 @@ jobs:
           python-version: "3.12"
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y python3-tk
+        run: sudo apt-get update && sudo apt-get install -y python3-tk python3-dev
 
-      - name: Install PyInstaller
-        run: pip install pyinstaller
+      - name: Install dependencies
+        run: |
+          pip install pyinstaller
+          pip install -r requirements.txt
 
       - name: Build Linux executable
         run: >
-          pyinstaller --noconfirm --onefile
+          pyinstaller --noconfirm --onefile --windowed
           --name "nova-dso-tracker"
           --add-data "nova_logo.png:."
+          --add-data "assets:assets"
           nova_manager.py
 
       - name: Upload Linux artifact

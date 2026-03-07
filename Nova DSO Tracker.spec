@@ -5,7 +5,7 @@ a = Analysis(
     ['nova_manager.py'],
     pathex=[],
     binaries=[],
-    datas=[('nova_logo.png', '.')],
+    datas=[('nova_logo.png', '.'), ('assets', 'assets')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

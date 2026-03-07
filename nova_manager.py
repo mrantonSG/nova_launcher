@@ -1,114 +1,113 @@
-import shutil
+# -*- coding: utf-8 -*-
+"""
+Nova DSO Tracker Launcher - Main Application
+
+A cross-platform GUI launcher for Nova DSO Tracker that manages Docker containers.
+Migrated to CustomTkinter with Nova DSO Tracker design system.
+"""
+
+import customtkinter as ctk
 import tkinter as tk
-from tkinter import ttk, messagebox
 import subprocess
 import threading
 import time
 import webbrowser
 import urllib.request
-import urllib.error
-import socket
+import json
 import os
 import sys
 
-# --- Configuration (centralized constants) ---
-APP_NAME = "Nova DSO Tracker"
-APP_VERSION = "1.2.0"
-DOCKER_CONTAINER_NAME = "nova-tracker"
-DOCKER_IMAGE = "mrantonsg/nova-dso-tracker"
-DOCKER_TAG = "latest"
-DOCKER_IMAGE_FULL = f"{DOCKER_IMAGE}:{DOCKER_TAG}"
-PORT = 5001
-DASHBOARD_URL = f"http://localhost:{PORT}"
-DOCKER_DOWNLOAD_URL = "https://www.docker.com/products/docker-desktop"
-GITHUB_REPO = "mrantonsg/nova-dso-tracker-launcher"
-GITHUB_RELEASES_API = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+# Set CustomTkinter appearance before any widget creation
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("assets/nova_theme.json")
 
-# FORCE INSTALL PATH to ~/nova (Universal & Safe)
-INSTALL_PATH = os.path.join(os.path.expanduser("~"), "nova")
-COMPOSE_FILE = os.path.join(INSTALL_PATH, "docker-compose.yml")
+# Import from refactored modules
+from config import (
+    APP_NAME,
+    APP_VERSION,
+    DOCKER_CONTAINER_NAME,
+    DOCKER_IMAGE,
+    DOCKER_TAG,
+    DOCKER_IMAGE_FULL,
+    PORT,
+    DASHBOARD_URL,
+    DOCKER_DOWNLOAD_URL,
+    GITHUB_RELEASES_API,
+    NOVA_DIR,
+    INSTANCE_DIR,
+    COMPOSE_FILE,
+    COMPOSE_TEMPLATE,
+    DOCKER_CMD_TIMEOUT,
+    DOCKER_INFO_TIMEOUT,
+    CONTAINER_START_POLL_COUNT,
+    DOCKER_START_POLL_COUNT,
+    MONITOR_INTERVAL,
+    UPDATE_BANNER_DISPLAY_TIME,
+)
+from docker_ops import (
+    run_command,
+    is_docker_installed,
+    is_docker_running,
+    is_nova_installed,
+    is_container_running,
+    create_compose_file,
+    pull_image,
+    start_container,
+    stop_container,
+    recreate_container,
+    prune_images,
+    get_container_image_digest,
+    check_dockerhub_version,
+    load_launcher_prefs,
+    save_launcher_prefs,
+    get_skipped_digest,
+    set_skipped_digest,
+)
+from utils import (
+    resource_path,
+    check_web_ready,
+    version_newer,
+)
 
-COMPOSE_TEMPLATE = f"""services:
-  tracker:
-    image: {DOCKER_IMAGE_FULL}
-    container_name: {DOCKER_CONTAINER_NAME}
-    ports:
-      - "{PORT}:{PORT}"
-    volumes:
-      - ./instance:/app/instance
-    restart: unless-stopped"""
+# --- Nova Design System Colors ---
+NOVA_TEAL_LIGHT = "#83b4c5"
+NOVA_TEAL_DARK = "#8ec8da"
+NOVA_TEAL_HOVER_LIGHT = "#6a9eb0"
+NOVA_TEAL_HOVER_DARK = "#7ab8cc"
 
-# Command timeout (seconds)
-DOCKER_CMD_TIMEOUT = 300
+DANGER_LIGHT = "#a04040"
+DANGER_DARK = "#d06060"
+DANGER_BG_LIGHT = "#faf6f6"
+DANGER_BG_DARK = "#2a2222"
+DANGER_HOVER_LIGHT = "#f5e8e8"
+DANGER_HOVER_DARK = "#3a2828"
+DANGER_BORDER_LIGHT = "#e8c8c8"
+DANGER_BORDER_DARK = "#6a4040"
 
-# --- Colors ---
-BG_COLOR = "#FFFFFF"
-NOVA_TEAL = "#6096BA"
-NOVA_RED = "#D35454"
-TEXT_COLOR = "#333333"
-SUBTEXT_COLOR = "#666666"
-SUCCESS_COLOR = "#4CD964"
-WARNING_COLOR = "#FF9500"
-GRAY_DOT = "#C7C7CC"
-DANGER_COLOR = "#D35454"
-LOG_BG = "#1E1E1E"
-LOG_FG = "#D4D4D4"
+GHOST_BG = "transparent"
+GHOST_HOVER_LIGHT = "#f7f5f2"
+GHOST_HOVER_DARK = "#1c2230"
+GHOST_TEXT_LIGHT = "#4a4a4a"
+GHOST_TEXT_DARK = "#8c8c8c"
+GHOST_BORDER_LIGHT = "#d0cdc8"
+GHOST_BORDER_DARK = "#3a3a3a"
 
+STATUS_RUNNING_LIGHT = "#83b4c5"
+STATUS_RUNNING_DARK = "#8ec8da"
+STATUS_STOPPED_LIGHT = "#888888"
+STATUS_STOPPED_DARK = "#555555"
+STATUS_ERROR_LIGHT = "#a04040"
+STATUS_ERROR_DARK = "#d06060"
 
-class ModernButton(tk.Canvas):
-    """Custom button for consistent macOS/Windows styling."""
-
-    def __init__(self, parent, text, command, bg_color, width=140, height=38):
-        super().__init__(parent, width=width, height=height, bg=BG_COLOR, highlightthickness=0)
-        self.command = command
-        self.bg_color = bg_color
-        self.text = text
-        self.is_disabled = False
-
-        # Rounded Rect
-        self.rect = self.create_rounded_rect(2, 2, width - 2, height - 2, 8, fill=bg_color, outline=bg_color)
-        self.text_id = self.create_text(width / 2, height / 2, text=text, fill="white", font=("Helvetica", 13, "bold"))
-
-        self.bind("<Button-1>", self._on_click)
-        self.bind("<Enter>", lambda e: self.config(cursor="hand2"))
-        self.bind("<Leave>", lambda e: self.config(cursor=""))
-
-    def create_rounded_rect(self, x1, y1, x2, y2, r, **kwargs):
-        points = (x1 + r, y1, x1 + r, y1, x2 - r, y1, x2 - r, y1, x2, y1, x2, y1 + r, x2, y1 + r, x2, y2 - r, x2,
-                  y2 - r, x2, y2, x2 - r, y2, x2 - r, y2, x1 + r, y2, x1 + r, y2, x1, y2, x1, y2 - r, x1, y2 - r, x1,
-                  y1 + r, x1, y1 + r, x1, y1)
-        return self.create_polygon(points, **kwargs, smooth=True)
-
-    def _on_click(self, event):
-        if not self.is_disabled and self.command:
-            self.command()
-
-    def set_text(self, text):
-        self.itemconfig(self.text_id, text=text)
-
-    def set_color(self, color):
-        self.bg_color = color
-        self.itemconfig(self.rect, fill=color, outline=color)
-
-    def set_state(self, state):
-        self.is_disabled = (state == "disabled")
-        color = "#AAAAAA" if self.is_disabled else self.bg_color
-        self.itemconfig(self.rect, fill=color, outline=color)
+# Log viewer memory limit
+MAX_LOG_LINES = 500
 
 
 class NovaManagerApp:
-    def resource_path(self, relative_path):
-        """Get absolute path to resource, works for dev and for PyInstaller."""
-        try:
-            base_path = sys._MEIPASS
-        except Exception:
-            base_path = os.path.dirname(os.path.abspath(__file__))
-        return os.path.join(base_path, relative_path)
-
     def __init__(self, root):
         self.root = root
 
-        # --- FIX ENV PATH ---
+        # --- FIX ENV PATH (for legacy compatibility) ---
         if sys.platform == "darwin":
             os.environ["PATH"] += os.pathsep + "/usr/local/bin" + os.pathsep + "/opt/homebrew/bin"
         elif sys.platform == "linux":
@@ -117,21 +116,22 @@ class NovaManagerApp:
         self.root.title("Nova DSO Tracker Launcher")
         self.root.geometry("500x580")
         self.root.resizable(False, False)
-        self.root.configure(bg=BG_COLOR)
 
         # Graceful shutdown handler
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
-        if not os.path.exists(INSTALL_PATH):
+        # Ensure NOVA_DIR exists
+        if not os.path.exists(NOVA_DIR):
             try:
-                os.makedirs(INSTALL_PATH)
+                os.makedirs(NOVA_DIR)
             except Exception as e:
-                messagebox.showerror("Error", f"Cannot create install directory:\n{INSTALL_PATH}\n\n{e}")
+                self._show_error_dialog("Error", f"Cannot create install directory:\n{NOVA_DIR}\n\n{e}")
 
         self.is_processing = False
         self.just_installed = False
         self.stop_event = threading.Event()
         self.log_lines = []
+        self.pending_update_digest = None
 
         self.setup_ui()
 
@@ -147,126 +147,254 @@ class NovaManagerApp:
         self.stop_event.set()
         self.root.destroy()
 
+    def _get_appearance_mode(self):
+        """Get current appearance mode ('Light' or 'Dark')."""
+        return ctk.get_appearance_mode()
+
+    def _is_dark_mode(self):
+        """Check if dark mode is active."""
+        return self._get_appearance_mode() == "Dark"
+
     def setup_ui(self):
         # --- Header ---
-        header = tk.Frame(self.root, bg=BG_COLOR)
+        header = ctk.CTkFrame(self.root, fg_color="transparent")
         header.pack(fill=tk.X, padx=30, pady=(30, 20))
 
         # Logo
         try:
-            img_path = self.resource_path("nova_logo.png")
+            img_path = resource_path("nova_logo.png")
             self.logo_img = tk.PhotoImage(file=img_path)
             img_h = self.logo_img.height()
             if img_h > 70:
                 factor = img_h // 70
                 if factor > 1:
                     self.logo_img = self.logo_img.subsample(factor, factor)
-            lbl_logo = tk.Label(header, image=self.logo_img, bg=BG_COLOR)
+            lbl_logo = ctk.CTkLabel(header, image=self.logo_img, text="")
             lbl_logo.pack(side=tk.LEFT, padx=(0, 15))
         except Exception:
-            lbl_logo = tk.Label(header, text="N", font=("Helvetica", 45, "bold"), fg=NOVA_TEAL, bg=BG_COLOR)
+            lbl_logo = ctk.CTkLabel(
+                header,
+                text="N",
+                font=("DM Sans", 45, "bold"),
+                text_color=NOVA_TEAL_DARK if self._is_dark_mode() else NOVA_TEAL_LIGHT
+            )
             lbl_logo.pack(side=tk.LEFT, padx=(0, 15))
 
         # Title Block
-        title_frame = tk.Frame(header, bg=BG_COLOR)
+        title_frame = ctk.CTkFrame(header, fg_color="transparent")
         title_frame.pack(side=tk.LEFT, anchor="center")
-        tk.Label(title_frame, text=APP_NAME, font=("Helvetica", 20, "bold"), bg=BG_COLOR, fg=TEXT_COLOR).pack(anchor="w")
-        self.lbl_status_header = tk.Label(title_frame, text="Initializing...", font=("Helvetica", 13), bg=BG_COLOR,
-                                          fg=SUBTEXT_COLOR)
+        ctk.CTkLabel(
+            title_frame,
+            text=APP_NAME,
+            font=("DM Sans", 20, "bold")
+        ).pack(anchor="w")
+        self.lbl_status_header = ctk.CTkLabel(
+            title_frame,
+            text="Initializing...",
+            font=("DM Sans", 13)
+        )
         self.lbl_status_header.pack(anchor="w")
 
-        # Status Dot
-        self.dot_canvas = tk.Canvas(header, width=16, height=16, bg=BG_COLOR, highlightthickness=0)
-        self.dot_id = self.dot_canvas.create_oval(2, 2, 14, 14, fill=GRAY_DOT, outline="")
-        self.dot_canvas.pack(side=tk.RIGHT)
+        # Status Dot (using label with unicode)
+        self.lbl_dot = ctk.CTkLabel(
+            header,
+            text="●",
+            font=("DM Sans", 14),
+            text_color=STATUS_STOPPED_DARK if self._is_dark_mode() else STATUS_STOPPED_LIGHT
+        )
+        self.lbl_dot.pack(side=tk.RIGHT)
 
         # Divider
-        tk.Frame(self.root, height=1, bg="#E5E5E5").pack(fill=tk.X, pady=(0, 10))
+        divider = ctk.CTkFrame(self.root, height=1, fg_color=["#e5e2dc", "#252525"])
+        divider.pack(fill=tk.X, pady=(0, 10))
 
         # --- Content Area ---
-        self.content_frame = tk.Frame(self.root, bg=BG_COLOR)
+        self.content_frame = ctk.CTkFrame(self.root, fg_color="transparent")
         self.content_frame.pack(fill=tk.BOTH, expand=True, padx=20)
 
         # Center Status Text
-        self.lbl_center_info = tk.Label(self.content_frame, text="Checking status...", font=("Helvetica", 12),
-                                        bg=BG_COLOR, fg=SUBTEXT_COLOR, wraplength=400, justify="center")
+        self.lbl_center_info = ctk.CTkLabel(
+            self.content_frame,
+            text="Checking status...",
+            font=("DM Sans", 12),
+            wraplength=400,
+            justify="center"
+        )
         self.lbl_center_info.pack(pady=(20, 5))
 
         # Progress Bar
-        self.progress = ttk.Progressbar(self.content_frame, mode='indeterminate', length=200)
+        self.progress = ctk.CTkProgressBar(self.content_frame, mode="indeterminate", width=200)
+        self.progress.set(0)
 
         # Buttons Row
-        self.btn_row = tk.Frame(self.content_frame, bg=BG_COLOR)
+        self.btn_row = ctk.CTkFrame(self.content_frame, fg_color="transparent")
         self.btn_row.pack(pady=15)
 
-        self.btn_main = ModernButton(self.btn_row, "Loading...", self.on_main_action, NOVA_TEAL)
+        self.btn_main = ctk.CTkButton(
+            self.btn_row,
+            text="Loading...",
+            command=self.on_main_action,
+            width=140,
+            height=38,
+            font=("DM Sans", 13, "bold")
+        )
         self.btn_main.pack(side=tk.LEFT, padx=10)
 
-        self.btn_stop = ModernButton(self.btn_row, "Stop Tracker", self.stop_nova, NOVA_RED)
+        self.btn_stop = self._create_danger_button(
+            self.btn_row,
+            "Stop Tracker",
+            self.stop_nova,
+            width=140,
+            height=38
+        )
 
         # Version / image info label
-        self.lbl_version = tk.Label(self.content_frame, text="", font=("Helvetica", 10), bg=BG_COLOR, fg=SUBTEXT_COLOR)
+        self.lbl_version = ctk.CTkLabel(
+            self.content_frame,
+            text="",
+            font=("DM Sans", 10)
+        )
         self.lbl_version.pack(pady=(5, 0))
 
         # --- Log Viewer ---
-        log_frame = tk.Frame(self.root, bg=BG_COLOR)
+        log_frame = ctk.CTkFrame(self.root, fg_color="transparent")
         log_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(5, 5))
 
-        log_header = tk.Frame(log_frame, bg=BG_COLOR)
+        log_header = ctk.CTkFrame(log_frame, fg_color="transparent")
         log_header.pack(fill=tk.X)
-        tk.Label(log_header, text="Logs", font=("Helvetica", 10, "bold"), bg=BG_COLOR, fg=SUBTEXT_COLOR).pack(
-            side=tk.LEFT)
+        ctk.CTkLabel(
+            log_header,
+            text="Logs",
+            font=("DM Sans", 10, "bold")
+        ).pack(side=tk.LEFT)
 
         self.log_toggle_var = tk.BooleanVar(value=False)
-        self.log_toggle_btn = tk.Label(log_header, text="Show", font=("Helvetica", 10), bg=BG_COLOR,
-                                        fg=NOVA_TEAL, cursor="hand2")
+        self.log_toggle_btn = ctk.CTkLabel(
+            log_header,
+            text="Show",
+            font=("DM Sans", 10),
+            text_color=NOVA_TEAL_DARK if self._is_dark_mode() else NOVA_TEAL_LIGHT,
+            cursor="hand2"
+        )
         self.log_toggle_btn.pack(side=tk.RIGHT)
         self.log_toggle_btn.bind("<Button-1>", lambda e: self._toggle_logs())
 
-        self.log_text = tk.Text(log_frame, height=10, bg=LOG_BG, fg=LOG_FG, font=("Menlo", 10),
-                                state="disabled", wrap="word", borderwidth=0, highlightthickness=0)
+        self.log_text = ctk.CTkTextbox(
+            log_frame,
+            height=10,
+            font=("Courier New", 10),
+            state="disabled",
+            wrap="word"
+        )
         # Start hidden
         self.log_text.pack_forget()
 
         # --- Footer ---
-        footer = tk.Frame(self.root, bg=BG_COLOR)
+        footer = ctk.CTkFrame(self.root, fg_color="transparent")
         footer.pack(side=tk.BOTTOM, fill=tk.X, padx=20, pady=(0, 15))
 
         # Update Link
-        self.lbl_update = tk.Label(footer, text="\u27F3 Check for Updates", font=("Helvetica", 11), bg=BG_COLOR,
-                                   fg=SUBTEXT_COLOR, cursor="hand2")
+        self.lbl_update = ctk.CTkLabel(
+            footer,
+            text="↻ Check for Updates",
+            font=("DM Sans", 11),
+            cursor="hand2"
+        )
         self.lbl_update.pack(side=tk.BOTTOM, pady=(10, 0))
         self.lbl_update.bind("<Button-1>", lambda e: self.check_update())
 
         # Launcher version label
-        self.lbl_launcher_ver = tk.Label(footer, text=f"Launcher v{APP_VERSION}", font=("Helvetica", 9),
-                                          bg=BG_COLOR, fg="#AAAAAA")
+        self.lbl_launcher_ver = ctk.CTkLabel(
+            footer,
+            text=f"Launcher v{APP_VERSION}",
+            font=("DM Sans", 9),
+            text_color=["#888888", "#666666"]
+        )
         self.lbl_launcher_ver.pack(side=tk.BOTTOM)
 
         # Launcher update banner (hidden by default)
-        self.update_banner = tk.Frame(footer, bg="#E8F5E9")
-        self.lbl_update_banner = tk.Label(self.update_banner, text="", font=("Helvetica", 10),
-                                           bg="#E8F5E9", fg="#2E7D32", cursor="hand2")
+        self.update_banner = ctk.CTkFrame(footer, fg_color=["#E8F5E9", "#1a3d1f"])
+        self.lbl_update_banner = ctk.CTkLabel(
+            self.update_banner,
+            text="",
+            font=("DM Sans", 10),
+            text_color=["#2E7D32", "#4CAF50"],
+            cursor="hand2"
+        )
         self.lbl_update_banner.pack(padx=10, pady=5)
+
+    def _create_danger_button(self, parent, text, command, width=140, height=38):
+        """Create a danger/stop button with Nova styling."""
+        return ctk.CTkButton(
+            parent,
+            text=text,
+            command=command,
+            width=width,
+            height=height,
+            font=("DM Sans", 13, "bold"),
+            fg_color=[DANGER_BG_LIGHT, DANGER_BG_DARK],
+            hover_color=[DANGER_HOVER_LIGHT, DANGER_HOVER_DARK],
+            text_color=[DANGER_LIGHT, DANGER_DARK],
+            border_width=1,
+            border_color=[DANGER_BORDER_LIGHT, DANGER_BORDER_DARK]
+        )
+
+    def _create_ghost_button(self, parent, text, command, width=110, height=38):
+        """Create a ghost/secondary button with Nova styling."""
+        return ctk.CTkButton(
+            parent,
+            text=text,
+            command=command,
+            width=width,
+            height=height,
+            font=("DM Sans", 12),
+            fg_color="transparent",
+            hover_color=[GHOST_HOVER_LIGHT, GHOST_HOVER_DARK],
+            text_color=[GHOST_TEXT_LIGHT, GHOST_TEXT_DARK],
+            border_width=1,
+            border_color=[GHOST_BORDER_LIGHT, GHOST_BORDER_DARK]
+        )
+
+    def _create_primary_button(self, parent, text, command, width=140, height=38):
+        """Create a primary action button with Nova teal styling."""
+        return ctk.CTkButton(
+            parent,
+            text=text,
+            command=command,
+            width=width,
+            height=height,
+            font=("DM Sans", 13, "bold"),
+            fg_color=[NOVA_TEAL_LIGHT, NOVA_TEAL_DARK],
+            hover_color=[NOVA_TEAL_HOVER_LIGHT, NOVA_TEAL_HOVER_DARK],
+            text_color="#ffffff",
+            border_width=0
+        )
 
     def _toggle_logs(self):
         if self.log_toggle_var.get():
             self.log_text.pack_forget()
-            self.log_toggle_btn.config(text="Show")
+            self.log_toggle_btn.configure(text="Show")
             self.log_toggle_var.set(False)
         else:
             self.log_text.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
-            self.log_toggle_btn.config(text="Hide")
+            self.log_toggle_btn.configure(text="Hide")
             self.log_toggle_var.set(True)
 
     def _append_log(self, text):
-        """Thread-safe append to the log viewer."""
+        """Thread-safe append to the log viewer with line limit."""
         def _update():
-            self.log_text.config(state="normal")
+            self.log_text.configure(state="normal")
             timestamp = time.strftime("%H:%M:%S")
             self.log_text.insert("end", f"[{timestamp}] {text}\n")
+
+            # Enforce max line limit
+            line_count = int(self.log_text.index("end-1c").split(".")[0])
+            if line_count > MAX_LOG_LINES:
+                lines_to_delete = line_count - MAX_LOG_LINES
+                self.log_text.delete("1.0", f"{lines_to_delete + 1}.0")
+
             self.log_text.see("end")
-            self.log_text.config(state="disabled")
+            self.log_text.configure(state="disabled")
         self.root.after(0, _update)
 
     # --- UI Helpers ---
@@ -274,132 +402,232 @@ class NovaManagerApp:
     def set_loading(self, is_loading, message="Processing..."):
         self.is_processing = is_loading
         if is_loading:
-            self.lbl_center_info.config(text=message)
+            self.lbl_center_info.configure(text=message)
             self.progress.pack(after=self.lbl_center_info, pady=(10, 15))
-            self.progress.start(10)
-            self.btn_main.set_state("disabled")
-            self.btn_stop.set_state("disabled")
+            self.progress.start()
+            self.btn_main.configure(state="disabled")
+            self.btn_stop.configure(state="disabled")
             self.lbl_update.unbind("<Button-1>")
-            self.lbl_update.config(fg="#AAAAAA", cursor="")
+            self.lbl_update.configure(text_color=["#AAAAAA", "#4d4d4d"], cursor="")
         else:
             self.progress.stop()
             self.progress.pack_forget()
             self.lbl_update.bind("<Button-1>", lambda e: self.check_update())
-            self.lbl_update.config(fg=SUBTEXT_COLOR, cursor="hand2")
-            self.lbl_center_info.config(text="")
-
-    def run_command(self, command, timeout=DOCKER_CMD_TIMEOUT):
-        """Run command inside ~/nova. Returns (stdout, stderr, returncode)."""
-        self._append_log(f"$ {command}")
-        try:
-            result = subprocess.run(
-                command, shell=True, cwd=INSTALL_PATH, env=os.environ,
-                capture_output=True, text=True, timeout=timeout
+            self.lbl_update.configure(
+                text_color=[NOVA_TEAL_LIGHT, NOVA_TEAL_DARK] if self._is_dark_mode() else ["#666666", "#8c8c8c"],
+                cursor="hand2"
             )
-            if result.stdout.strip():
-                self._append_log(result.stdout.strip())
-            if result.stderr.strip():
-                self._append_log(f"[stderr] {result.stderr.strip()}")
-            return result.stdout.strip(), result.stderr.strip(), result.returncode
-        except subprocess.TimeoutExpired:
-            self._append_log(f"[timeout] Command timed out after {timeout}s")
-            return "", f"Command timed out after {timeout}s", -1
-        except Exception as e:
-            self._append_log(f"[error] {e}")
-            return "", str(e), -1
+            self.lbl_center_info.configure(text="")
 
-    def _run_command_compat(self, command, timeout=DOCKER_CMD_TIMEOUT):
-        """Backward-compat wrapper that returns just stdout for simple checks."""
-        stdout, _, _ = self.run_command(command, timeout=timeout)
-        return stdout
+    def run_command_legacy(self, command, timeout=DOCKER_CMD_TIMEOUT):
+        """Legacy wrapper for run_command that logs output. Returns (stdout, stderr, returncode)."""
+        self._append_log(f"$ {command}")
+
+        # Parse shell command into list for secure execution
+        args = command.split()
+
+        stdout, stderr, rc = run_command(args, timeout=timeout, cwd=NOVA_DIR)
+
+        if stdout:
+            self._append_log(stdout)
+        if stderr:
+            self._append_log(f"[stderr] {stderr}")
+
+        return stdout, stderr, rc
 
     def check_port_available(self):
         """Check if the configured port is available before starting."""
+        import socket
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.settimeout(1)
                 result = s.connect_ex(("127.0.0.1", PORT))
                 if result == 0:
                     # Port is in use - check if it's our container
-                    stdout = self._run_command_compat(
-                        f'docker ps --filter "name={DOCKER_CONTAINER_NAME}" --format "{{{{.Status}}}}"',
-                        timeout=10
-                    )
-                    if "Up" in stdout:
+                    is_running, _ = is_container_running()
+                    if is_running:
                         return True  # Our container is using it, that's fine
                     return False  # Something else is using the port
                 return True  # Port is free
         except Exception:
             return True  # If check fails, proceed anyway
 
-    def check_web_ready(self):
-        """Check if the dashboard is responsive."""
-        try:
-            with urllib.request.urlopen(DASHBOARD_URL, timeout=2.0) as response:
-                if response.getcode() != 200:
-                    return False
-                content = response.read()
-                return len(content) > 500
-        except Exception:
-            return False
-
-    def get_image_version(self):
-        """Get the currently running image digest (short hash) for display."""
-        try:
-            stdout = self._run_command_compat(
-                f'docker inspect --format="{{{{.Image}}}}" {DOCKER_CONTAINER_NAME}',
-                timeout=10
-            )
-            if stdout and "sha256:" in stdout:
-                return stdout.replace("sha256:", "")[:12]
-            return ""
-        except Exception:
-            return ""
-
     def monitor_loop(self):
         while not self.stop_event.is_set():
             if not self.is_processing:
                 self.check_state()
-            time.sleep(3)
+            time.sleep(MONITOR_INTERVAL)
 
     def check_state(self):
         # 1. Docker installed?
-        if shutil.which("docker") is None:
+        if not is_docker_installed():
             self.update_ui("docker_missing")
             return
 
         # 2. Docker daemon running?
-        stdout, stderr, rc = self.run_command("docker info", timeout=10)
-        if "Server Version" not in stdout:
-            # Distinguish "not running" from "not properly installed"
-            # If Docker can't connect to daemon, it's stopped but installed
-            # If it errors out completely, treat as missing
-            if rc != 0 and ("connect" not in stderr.lower()
-                            and "daemon" not in stderr.lower()
-                            and "is the docker daemon running" not in stderr.lower()):
+        is_running, status = is_docker_running()
+        if not is_running:
+            if status == "missing":
                 self.update_ui("docker_missing")
             else:
                 self.update_ui("docker_stopped")
             return
 
-        # 3. Nova installed?
-        if not os.path.exists(COMPOSE_FILE):
+        # 3. Check for Docker Hub updates (non-blocking, after daemon check)
+        # Only check if we haven't already prompted about an update
+        if self.pending_update_digest is None:
+            threading.Thread(target=self._check_image_update_background, daemon=True).start()
+
+        # 4. Nova installed?
+        if not is_nova_installed():
             self.update_ui("not_installed")
             return
 
-        # 4. Container running?
-        status = self._run_command_compat(
-            f'docker ps --filter "name={DOCKER_CONTAINER_NAME}" --format "{{{{.Status}}}}"',
-            timeout=10
-        )
+        # 5. Container running?
+        is_running, status_str = is_container_running()
 
-        if "Up" in status:
-            if self.check_web_ready():
+        if is_running:
+            if check_web_ready():
                 self.update_ui("running")
             else:
                 self.update_ui("initializing")
         else:
             self.update_ui("stopped")
+
+    def _check_image_update_background(self):
+        """Background check for Docker Hub image updates."""
+        try:
+            update_available, remote_digest, error = check_dockerhub_version()
+
+            if error:
+                self._append_log(f"[info] Docker Hub check: {error}")
+                return
+
+            if update_available and remote_digest:
+                # Check if user has skipped this version
+                skipped = get_skipped_digest()
+                if skipped and remote_digest == skipped:
+                    self._append_log("[info] Update available but user skipped this version")
+                    return
+
+                # Store the pending digest and prompt user
+                self.pending_update_digest = remote_digest
+                self.root.after(0, lambda: self._prompt_update_dialog(remote_digest))
+        except Exception as e:
+            self._append_log(f"[warn] Docker Hub check failed: {e}")
+
+    def _show_error_dialog(self, title, message):
+        """Show an error dialog using CTkToplevel."""
+        dialog = ctk.CTkToplevel(self.root)
+        dialog.title(title)
+        dialog.geometry("400x150")
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        # Center the dialog
+        dialog.geometry(f"+{self.root.winfo_x() + 50}+{self.root.winfo_y() + 100}")
+
+        ctk.CTkLabel(
+            dialog,
+            text=message,
+            font=("DM Sans", 12),
+            wraplength=350,
+            justify="center"
+        ).pack(pady=30)
+
+        ctk.CTkButton(
+            dialog,
+            text="OK",
+            command=dialog.destroy,
+            width=100
+        ).pack()
+
+    def _prompt_update_dialog(self, remote_digest: str):
+        """Show a dialog prompting the user to update."""
+        # Don't prompt if we're processing something else
+        if self.is_processing:
+            return
+
+        # Create a custom dialog
+        dialog = ctk.CTkToplevel(self.root)
+        dialog.title("Update Available")
+        dialog.geometry("420x200")
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        # Center the dialog
+        dialog.geometry(f"+{self.root.winfo_x() + 40}+{self.root.winfo_y() + 100}")
+
+        # Message
+        ctk.CTkLabel(
+            dialog,
+            text="A newer version of Nova DSO Tracker is available!",
+            font=("DM Sans", 14, "bold")
+        ).pack(pady=(25, 10))
+
+        ctk.CTkLabel(
+            dialog,
+            text=f"Image: {DOCKER_IMAGE}:{DOCKER_TAG}",
+            font=("DM Sans", 11)
+        ).pack(pady=(0, 25))
+
+        # Buttons frame
+        btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        btn_frame.pack(pady=10)
+
+        def on_update():
+            dialog.destroy()
+            self._perform_image_update()
+
+        def on_skip():
+            dialog.destroy()
+            # Clear pending so we don't prompt again this session
+            self.pending_update_digest = None
+
+        def on_skip_version():
+            set_skipped_digest(remote_digest)
+            self.pending_update_digest = None
+            dialog.destroy()
+
+        self._create_primary_button(btn_frame, "Update Now", on_update, width=120).pack(side=tk.LEFT, padx=5)
+        self._create_ghost_button(btn_frame, "Skip", on_skip, width=80).pack(side=tk.LEFT, padx=5)
+        self._create_ghost_button(btn_frame, "Skip Version", on_skip_version, width=110).pack(side=tk.LEFT, padx=5)
+
+    def _perform_image_update(self):
+        """Pull the latest image and recreate the container."""
+        self.set_loading(True, "Downloading update...")
+
+        def _update_thread():
+            self._append_log("Pulling latest image...")
+
+            # Pull the image
+            success, msg = pull_image()
+            if not success:
+                self.root.after(0, lambda: self._show_error_dialog("Update Failed", f"Failed to pull image:\n{msg}"))
+                self.root.after(0, lambda: self.set_loading(False))
+                self.pending_update_digest = None
+                return
+
+            # Stop and recreate container
+            self._append_log("Recreating container...")
+            stop_container()
+
+            success, msg = recreate_container()
+            if not success:
+                self.root.after(0, lambda: self._show_error_dialog("Update Failed", f"Failed to recreate container:\n{msg}"))
+
+            # Cleanup old images
+            prune_images()
+
+            # Clear pending
+            self.pending_update_digest = None
+
+            self.root.after(0, lambda: self.set_loading(False))
+            self.root.after(200, self.check_state)
+
+        threading.Thread(target=_update_thread, daemon=True).start()
 
     def update_ui(self, state):
         self.root.after(0, lambda: self._apply_ui_state(state))
@@ -408,81 +636,87 @@ class NovaManagerApp:
         if self.is_processing:
             return
 
-        self.btn_main.set_state("normal")
-        self.btn_stop.set_state("normal")
+        self.btn_main.configure(state="normal")
+        self.btn_stop.configure(state="normal")
 
         if state == "docker_missing":
-            self.set_status("Docker Missing", DANGER_COLOR,
+            self.set_status("Docker Missing", STATUS_ERROR_DARK if self._is_dark_mode() else STATUS_ERROR_LIGHT,
                             "Docker Desktop is required to run Nova.\n\n"
                             "Click below to download it. Once installed,\n"
                             "open Docker Desktop and return here.")
-            self.btn_main.set_text("Download Docker")
-            self.btn_main.command = self.open_docker
-            self.btn_main.set_color(NOVA_TEAL)
+            self.btn_main.configure(text="Download Docker", command=self.open_docker)
+            self._style_button_primary(self.btn_main)
             self.btn_stop.pack_forget()
-            self.lbl_version.config(text="")
+            self.lbl_version.configure(text="")
 
         elif state == "docker_stopped":
-            self.set_status("Docker Not Running", WARNING_COLOR, "Please open Docker Desktop to continue.")
-            self.btn_main.set_text("Launch Docker")
-            self.btn_main.command = self.launch_docker_app
-            self.btn_main.set_color(NOVA_TEAL)
+            self.set_status("Docker Not Running", STATUS_ERROR_DARK if self._is_dark_mode() else "#FF9500",
+                            "Please open Docker Desktop to continue.")
+            self.btn_main.configure(text="Launch Docker", command=self.launch_docker_app)
+            self._style_button_primary(self.btn_main)
             self.btn_stop.pack_forget()
-            self.lbl_version.config(text="")
+            self.lbl_version.configure(text="")
 
         elif state == "not_installed":
-            self.set_status("Not Installed", GRAY_DOT, f"Install location: {INSTALL_PATH}")
-            self.btn_main.set_text("Install Nova")
-            self.btn_main.command = self.install_nova
-            self.btn_main.set_color(NOVA_TEAL)
+            self.set_status("Not Installed", STATUS_STOPPED_DARK if self._is_dark_mode() else STATUS_STOPPED_LIGHT,
+                            f"Install location: {NOVA_DIR}")
+            self.btn_main.configure(text="Install Nova", command=self.install_nova)
+            self._style_button_primary(self.btn_main)
             self.btn_stop.pack_forget()
-            self.lbl_version.config(text="")
+            self.lbl_version.configure(text="")
 
         elif state == "stopped":
-            self.set_status("Service Stopped", WARNING_COLOR, "Service is stopped.")
-            self.btn_main.set_text("Start Tracker")
-            self.btn_main.command = self.start_nova
-            self.btn_main.set_color(NOVA_TEAL)
+            self.set_status("Service Stopped", "#FF9500" if self._is_dark_mode() else "#FF9500",
+                            "Service is stopped.")
+            self.btn_main.configure(text="Start Tracker", command=self.start_nova)
+            self._style_button_primary(self.btn_main)
             self.btn_stop.pack_forget()
             self._update_version_label()
 
         elif state == "initializing":
             if self.just_installed:
                 msg = "First-time setup: Web UI may take ~2 mins to initialize.\nSubsequent runs will be real-time."
-                self.set_status("Initializing...", WARNING_COLOR, msg)
+                self.set_status("Initializing...", "#FF9500", msg)
             else:
-                self.set_status("Initializing...", WARNING_COLOR, "Starting up... (this may take a minute)")
-            self.btn_main.set_text("Open Dashboard")
-            self.btn_main.command = self.open_dashboard
-            self.btn_main.set_color(NOVA_TEAL)
+                self.set_status("Initializing...", "#FF9500", "Starting up... (this may take a minute)")
+            self.btn_main.configure(text="Open Dashboard", command=self.open_dashboard)
+            self._style_button_primary(self.btn_main)
             self.btn_stop.pack(side=tk.LEFT, padx=10)
             self._update_version_label()
 
         elif state == "running":
             self.just_installed = False
-            self.set_status("Nova Tracker is Active", SUCCESS_COLOR, "")
-            self.lbl_center_info.config(text="")
-            self.btn_main.set_text("Open Dashboard")
-            self.btn_main.command = self.open_dashboard
-            self.btn_main.set_color(NOVA_TEAL)
+            self.set_status("Nova Tracker is Active", STATUS_RUNNING_DARK if self._is_dark_mode() else STATUS_RUNNING_LIGHT, "")
+            self.lbl_center_info.configure(text="")
+            self.btn_main.configure(text="Open Dashboard", command=self.open_dashboard)
+            self._style_button_primary(self.btn_main)
             self.btn_stop.pack(side=tk.LEFT, padx=10)
             self._update_version_label()
+
+    def _style_button_primary(self, btn):
+        """Apply primary button styling."""
+        btn.configure(
+            fg_color=[NOVA_TEAL_LIGHT, NOVA_TEAL_DARK],
+            hover_color=[NOVA_TEAL_HOVER_LIGHT, NOVA_TEAL_HOVER_DARK],
+            text_color="#ffffff",
+            border_width=0
+        )
 
     def _update_version_label(self):
         """Show the running image digest in the version label."""
         def _fetch():
-            digest = self.get_image_version()
+            digest = get_container_image_digest()
             if digest:
-                self.root.after(0, lambda: self.lbl_version.config(
-                    text=f"Image: {DOCKER_IMAGE}:{DOCKER_TAG}  \u2022  {digest}"))
+                self.root.after(0, lambda: self.lbl_version.configure(
+                    text=f"Image: {DOCKER_IMAGE}:{DOCKER_TAG}  •  {digest}"))
             else:
-                self.root.after(0, lambda: self.lbl_version.config(text=""))
+                self.root.after(0, lambda: self.lbl_version.configure(text=""))
         threading.Thread(target=_fetch, daemon=True).start()
 
-    def set_status(self, header, dot, center):
-        self.lbl_status_header.config(text=header)
-        self.dot_canvas.itemconfig(self.dot_id, fill=dot)
-        self.lbl_center_info.config(text=center)
+    def set_status(self, header, dot_color, center):
+        self.lbl_status_header.configure(text=header)
+        self.lbl_dot.configure(text_color=dot_color)
+        self.lbl_center_info.configure(text=center)
 
     # --- Actions ---
 
@@ -494,58 +728,45 @@ class NovaManagerApp:
         self.set_loading(True, "Initializing installation...")
 
         try:
-            os.makedirs(INSTALL_PATH, exist_ok=True)
+            os.makedirs(NOVA_DIR, exist_ok=True)
         except Exception as e:
-            self._append_log(f"[error] Cannot create directory {INSTALL_PATH}: {e}")
-            messagebox.showerror("Installation Error",
-                                 f"Cannot create install directory:\n{INSTALL_PATH}\n\n{e}")
+            self._append_log(f"[error] Cannot create directory {NOVA_DIR}: {e}")
+            self._show_error_dialog("Installation Error",
+                                    f"Cannot create install directory:\n{NOVA_DIR}\n\n{e}")
             self.set_loading(False)
             return
 
-        try:
-            with open(COMPOSE_FILE, "w") as f:
-                f.write(COMPOSE_TEMPLATE)
-            self._append_log(f"Wrote docker-compose.yml to {COMPOSE_FILE}")
-        except PermissionError:
-            self._append_log(f"[error] Permission denied writing to {COMPOSE_FILE}")
-            messagebox.showerror("Installation Error",
-                                 f"Permission denied writing to:\n{COMPOSE_FILE}\n\n"
-                                 "Please check directory permissions.")
+        # Create compose file
+        if not create_compose_file():
+            self._append_log(f"[error] Failed to create docker-compose.yml")
+            self._show_error_dialog("Installation Error",
+                                    f"Failed to create docker-compose.yml in:\n{NOVA_DIR}")
             self.set_loading(False)
             return
-        except OSError as e:
-            self._append_log(f"[error] Failed to write docker-compose.yml: {e}")
-            messagebox.showerror("Installation Error",
-                                 f"Failed to write docker-compose.yml:\n{e}")
-            self.set_loading(False)
-            return
+
+        self._append_log(f"Created docker-compose.yml at {COMPOSE_FILE}")
 
         threading.Thread(target=self._perform_install_sequence).start()
 
     def _perform_install_sequence(self):
-        self.root.after(0, lambda: self.lbl_center_info.config(text="Downloading images... (this may take 2-3 mins)"))
+        self.root.after(0, lambda: self.lbl_center_info.configure(text="Downloading images... (this may take 2-3 mins)"))
 
-        stdout, stderr, rc = self.run_command("docker compose pull")
-        if rc != 0:
-            self.root.after(0, lambda: messagebox.showerror("Pull Failed",
-                                                             f"Failed to pull Docker image.\n\n{stderr}"))
+        # Pull image
+        success, msg = pull_image()
+        if not success:
+            self.root.after(0, lambda: self._show_error_dialog("Pull Failed", f"Failed to pull Docker image.\n\n{msg}"))
             self.root.after(0, lambda: self.set_loading(False))
             return
 
         msg = "First-time setup: Web UI may take ~2 mins to initialize.\nSubsequent runs will be real-time."
-        self.root.after(0, lambda: self.lbl_center_info.config(text=msg))
+        self.root.after(0, lambda: self.lbl_center_info.configure(text=msg))
 
-        self.run_command("docker compose up -d")
-
-        # Poll until Container is officially "Up" (max 30s)
-        for _ in range(30):
-            status = self._run_command_compat(
-                f'docker ps --filter "name={DOCKER_CONTAINER_NAME}" --format "{{{{.Status}}}}"',
-                timeout=10
-            )
-            if "Up" in status:
-                break
-            time.sleep(1)
+        # Start container
+        success, msg = start_container()
+        if not success:
+            self.root.after(0, lambda: self._show_error_dialog("Start Failed", f"Failed to start container.\n\n{msg}"))
+            self.root.after(0, lambda: self.set_loading(False))
+            return
 
         self.root.after(0, lambda: self.set_loading(False))
         self.root.after(200, self.check_state)
@@ -553,22 +774,30 @@ class NovaManagerApp:
     def start_nova(self):
         # Port conflict check
         if not self.check_port_available():
-            messagebox.showwarning("Port Conflict",
-                                   f"Port {PORT} is already in use by another application.\n\n"
-                                   f"Please free port {PORT} and try again.")
+            self._show_error_dialog("Port Conflict",
+                                    f"Port {PORT} is already in use by another application.\n\n"
+                                    f"Please free port {PORT} and try again.")
             self._append_log(f"[warn] Port {PORT} is in use by another process")
             return
         self.set_loading(True, "Starting service...")
-        threading.Thread(target=self._run_docker_op, args=("docker compose up -d",)).start()
+        threading.Thread(target=self._run_docker_start).start()
+
+    def _run_docker_start(self):
+        success, msg = start_container()
+        if not success:
+            self._append_log(f"[warn] Failed to start: {msg}")
+        time.sleep(2)
+        self.root.after(0, lambda: self.set_loading(False))
+        self.check_state()
 
     def stop_nova(self):
         self.set_loading(True, "Stopping service...")
-        threading.Thread(target=self._run_docker_op, args=("docker compose stop",)).start()
+        threading.Thread(target=self._run_docker_stop).start()
 
-    def _run_docker_op(self, cmd):
-        stdout, stderr, rc = self.run_command(cmd)
-        if rc != 0 and rc != -1:
-            self._append_log(f"[warn] Command exited with code {rc}")
+    def _run_docker_stop(self):
+        success, msg = stop_container()
+        if not success:
+            self._append_log(f"[warn] Failed to stop: {msg}")
         time.sleep(2)
         self.root.after(0, lambda: self.set_loading(False))
         self.check_state()
@@ -581,10 +810,10 @@ class NovaManagerApp:
 
     def launch_docker_app(self):
         # Don't try to launch if Docker isn't installed at all
-        if shutil.which("docker") is None:
-            messagebox.showwarning("Docker Not Found",
-                                   "Docker is not installed on this system.\n\n"
-                                   "Please install Docker first.")
+        if not is_docker_installed():
+            self._show_error_dialog("Docker Not Found",
+                                    "Docker is not installed on this system.\n\n"
+                                    "Please install Docker first.")
             self.open_docker()
             return
 
@@ -616,17 +845,17 @@ class NovaManagerApp:
 
             if not launched:
                 self.root.after(0, lambda: self.set_loading(False))
-                self.root.after(0, lambda: messagebox.showwarning("Launch Failed",
+                self.root.after(0, lambda: self._show_error_dialog("Launch Failed",
                     "Could not start Docker.\n\nPlease start Docker manually."))
                 return
 
             # Poll until Docker is responsive (max 60s)
             docker_ready = False
-            for _ in range(60):
+            for _ in range(DOCKER_START_POLL_COUNT):
                 if self.stop_event.is_set():
                     return
-                stdout = self._run_command_compat("docker info", timeout=10)
-                if "Server Version" in stdout:
+                is_running, _ = is_docker_running()
+                if is_running:
                     docker_ready = True
                     break
                 time.sleep(1)
@@ -635,7 +864,7 @@ class NovaManagerApp:
             self.root.after(0, lambda: self.set_loading(False))
 
             if not docker_ready:
-                self.root.after(0, lambda: messagebox.showwarning("Timeout",
+                self.root.after(0, lambda: self._show_error_dialog("Timeout",
                     "Docker did not start within 60 seconds.\n\nPlease start Docker manually and try again."))
 
             self.root.after(200, self.check_state)
@@ -643,37 +872,41 @@ class NovaManagerApp:
         threading.Thread(target=_launch_thread).start()
 
     def check_update(self):
-        self.lbl_update.config(text="Checking...", fg=NOVA_TEAL)
+        self.lbl_update.configure(text="Checking...", text_color=[NOVA_TEAL_LIGHT, NOVA_TEAL_DARK])
         self.set_loading(True, "Checking for updates...")
         threading.Thread(target=self._update_process).start()
 
     def _update_process(self):
         # 1. Pull the latest image
-        stdout, stderr, rc = self.run_command(f"docker pull {DOCKER_IMAGE_FULL}")
-        if rc != 0:
-            self.root.after(0, lambda: messagebox.showerror("Update Failed",
-                                                             f"Failed to pull the latest image.\n\n{stderr}"))
+        self._append_log(f"Pulling {DOCKER_IMAGE_FULL}...")
+        success, msg = pull_image()
+        if not success:
+            self.root.after(0, lambda: self._show_error_dialog("Update Failed",
+                                                                f"Failed to pull the latest image.\n\n{msg}"))
             self.root.after(0, lambda: self.set_loading(False))
-            self.root.after(0, lambda: self.lbl_update.config(text="\u27F3 Check for Updates", fg=SUBTEXT_COLOR))
+            self.root.after(0, lambda: self.lbl_update.configure(text="↻ Check for Updates"))
             return
 
         # 2. Stop current container
-        self.run_command("docker compose stop")
+        stop_container()
 
         # 3. Force recreate
-        self.run_command("docker compose up -d --force-recreate")
+        recreate_container()
 
         # 4. Cleanup
-        self.run_command("docker image prune -f")
+        prune_images()
 
         time.sleep(1)
-        self.root.after(0, lambda: self.lbl_update.config(text="\u27F3 Update Applied", fg=SUCCESS_COLOR))
+        self.root.after(0, lambda: self.lbl_update.configure(
+            text="↻ Update Applied",
+            text_color=["#4CD964", "#4CAF50"]
+        ))
 
         self.root.after(0, lambda: self.set_loading(False))
         self.root.after(200, self.check_state)
 
-        time.sleep(3)
-        self.root.after(0, lambda: self.lbl_update.config(text="\u27F3 Check for Updates", fg=SUBTEXT_COLOR))
+        time.sleep(UPDATE_BANNER_DISPLAY_TIME)
+        self.root.after(0, lambda: self.lbl_update.configure(text="↻ Check for Updates"))
 
     # --- Launcher Self-Update Check ---
 
@@ -682,35 +915,24 @@ class NovaManagerApp:
         try:
             req = urllib.request.Request(GITHUB_RELEASES_API, headers={"User-Agent": "NovaLauncher"})
             with urllib.request.urlopen(req, timeout=5) as response:
-                import json
                 data = json.loads(response.read().decode())
                 latest_tag = data.get("tag_name", "").lstrip("v")
                 html_url = data.get("html_url", "")
 
-                if latest_tag and self._version_newer(latest_tag, APP_VERSION):
+                if latest_tag and version_newer(latest_tag, APP_VERSION):
                     self.root.after(0, lambda: self._show_update_banner(latest_tag, html_url))
         except Exception:
             pass  # Silently fail - this is a nice-to-have
 
-    @staticmethod
-    def _version_newer(remote, local):
-        """Compare semver strings. Returns True if remote > local."""
-        try:
-            r = tuple(int(x) for x in remote.split("."))
-            l = tuple(int(x) for x in local.split("."))
-            return r > l
-        except Exception:
-            return False
-
     def _show_update_banner(self, version, url):
         """Show a non-intrusive banner when a new launcher version is available."""
-        self.lbl_update_banner.config(
-            text=f"Launcher v{version} available \u2014 click to download")
+        self.lbl_update_banner.configure(
+            text=f"Launcher v{version} available — click to download")
         self.lbl_update_banner.bind("<Button-1>", lambda e: webbrowser.open(url))
         self.update_banner.pack(side=tk.BOTTOM, fill=tk.X, pady=(5, 0))
 
 
 if __name__ == "__main__":
-    root = tk.Tk()
+    root = ctk.CTk()
     app = NovaManagerApp(root)
     root.mainloop()
