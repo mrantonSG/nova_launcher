@@ -9,7 +9,7 @@ import os
 
 # --- Application Info ---
 APP_NAME = "Nova DSO Tracker"
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.2.2-beta.1"
 
 # --- Docker Configuration ---
 DOCKER_IMAGE = "mrantonsg/nova-dso-tracker"

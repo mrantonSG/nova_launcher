@@ -18,9 +18,18 @@ import os
 import sys
 from PIL import Image
 
+# Helper for PyInstaller resource paths (needed before theme load)
+def _resource_path(relative_path: str) -> str:
+    """Get absolute path to resource, works for dev and for PyInstaller."""
+    try:
+        base_path = sys._MEIPASS  # type: ignore[attr-defined]
+    except (AttributeError, Exception):
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_path, relative_path)
+
 # Set CustomTkinter appearance before any widget creation
 ctk.set_appearance_mode("light")
-ctk.set_default_color_theme("assets/nova_theme.json")
+ctk.set_default_color_theme(_resource_path("assets/nova_theme.json"))
 
 # Import from refactored modules
 from config import (
