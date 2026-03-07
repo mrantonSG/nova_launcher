@@ -31,7 +31,6 @@ from config import (
     DOCKER_TAG,
     DOCKER_IMAGE_FULL,
     PORT,
-    DASHBOARD_URL,
     DOCKER_DOWNLOAD_URL,
     GITHUB_RELEASES_API,
     NOVA_DIR,
@@ -68,6 +67,7 @@ from utils import (
     resource_path,
     check_web_ready,
     version_newer,
+    open_dashboard as open_dashboard_url,
 )
 
 # --- Nova Design System Colors (Light Mode Only) ---
@@ -799,7 +799,7 @@ class NovaManagerApp:
         self.check_state()
 
     def open_dashboard(self):
-        webbrowser.open(DASHBOARD_URL)
+        open_dashboard_url()
 
     def open_docker(self):
         webbrowser.open(DOCKER_DOWNLOAD_URL)

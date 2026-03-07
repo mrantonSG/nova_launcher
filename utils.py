@@ -6,9 +6,12 @@ Includes resource path handling, web readiness checks, and version comparison.
 """
 
 import os
+import shutil
+import subprocess
 import sys
 import urllib.request
 import urllib.error
+import webbrowser
 
 from config import DASHBOARD_URL, WEB_READY_TIMEOUT
 
@@ -96,3 +99,55 @@ def sanitize_for_shell(value: str) -> str:
         "-_./:"
     )
     return "".join(c for c in value if c in allowed_chars)
+
+
+def open_dashboard() -> None:
+    """
+    Open the Nova dashboard in the default browser and bring it to foreground.
+
+    Opens the URL using webbrowser.open(), then attempts to bring the browser
+    window to the foreground using platform-specific methods. If the focus
+    operation fails, the URL will still have opened - the focus is a best-effort
+    enhancement.
+    """
+    # Open the URL first (existing behavior)
+    webbrowser.open(DASHBOARD_URL)
+
+    # Try to bring browser to foreground (platform-specific, fail silently)
+    try:
+        if sys.platform == "darwin":
+            # macOS: Use osascript to activate the frontmost browser
+            subprocess.Popen(
+                [
+                    "osascript", "-e",
+                    'tell application "System Events" to set frontmost of '
+                    '(first process whose name contains "Chrome" or name contains "Firefox" '
+                    'or name contains "Safari") to true'
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+
+        elif sys.platform == "linux":
+            # Linux: Use wmctrl if available
+            if shutil.which("wmctrl"):
+                subprocess.Popen(
+                    ["wmctrl", "-a", "browser"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+
+        elif sys.platform == "win32":
+            # Windows: Use PowerShell to activate browser window
+            subprocess.Popen(
+                [
+                    "powershell", "-command",
+                    '(New-Object -ComObject Shell.Application).Windows() | '
+                    'Select-Object -Last 1 | ForEach-Object { $_.Visible = $true }'
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+    except Exception:
+        # Fail silently - URL already opened via webbrowser.open()
+        pass
