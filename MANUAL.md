@@ -88,11 +88,14 @@ Nova DSO Tracker Launcher is a cross-platform GUI application that simplifies th
 
 4. **First Launch**
    - Double-click `Nova DSO Tracker.app` to launch
-   - **Important:** On first launch of an unsigned app, you may see a security warning:
-     - Right-click (or Control-click) on the app
-     - Select "Open" from the context menu
-     - Click "Open" in the confirmation dialog
+   - **Important:** On first launch of an unsigned app, macOS will block it:
+     - Open **System Settings** → **Privacy & Security**
+     - Scroll down to the security message about "Nova DSO Tracker"
+     - Click **"Open Anyway"** to allow the app
+     - You may be prompted to enter your password
    - This only needs to be done once
+
+**Note:** The right-click → "Open" method no longer works on recent macOS versions. You must use the Privacy & Security settings.
 
 ### Windows Installation
 
@@ -485,8 +488,10 @@ The installation process handles everything automatically:
 ### Platform-Specific Issues
 
 **macOS Gatekeeper Blocking**
-- Right-click the app and select "Open" to bypass
-- Or add to security exceptions in System Preferences
+- Go to **System Settings** → **Privacy & Security**
+- Find the security message about the blocked app
+- Click **"Open Anyway"** to allow it
+- Enter your password if prompted
 
 **Windows SmartScreen**
 - Click "More info" then "Run anyway"
