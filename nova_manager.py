@@ -17,7 +17,6 @@ import urllib.request
 import json
 import os
 import sys
-from PIL import Image
 import certifi
 
 # SSL context for HTTPS requests (uses certifi's bundled certificates)
@@ -156,33 +155,27 @@ class NovaManagerApp:
         header = ctk.CTkFrame(self.root, fg_color="transparent")
         header.pack(fill=tk.X, padx=30, pady=(30, 20))
 
-        # Logo - use CTkImage for HighDPI scaling on all platforms
-        try:
-            img_path = _resource_path("nova_logo.png")
-            pil_image = Image.open(img_path)
-            # Scale down if height > 70
-            img_h = pil_image.height
-            if img_h > 70:
-                scale_factor = 70 / img_h
-                new_width = int(pil_image.width * scale_factor)
-                new_height = 70
-                pil_image = pil_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
-            else:
-                new_width = pil_image.width
-                new_height = pil_image.height
-            self.logo_img = ctk.CTkImage(light_image=pil_image, size=(new_width, new_height))
-            lbl_logo = ctk.CTkLabel(header, image=self.logo_img, text="")
-            lbl_logo.pack(side=tk.LEFT, padx=(0, 15))
-        except Exception as e:
-            # Log the error for debugging PyInstaller builds
-            print(f"[WARN] Failed to load logo: {e}")
-            lbl_logo = ctk.CTkLabel(
-                header,
-                text="N",
-                font=("DM Sans", 45, "bold"),
-                text_color=NOVA_TEAL
-            )
-            lbl_logo.pack(side=tk.LEFT, padx=(0, 15))
+        # Nova Wordmark - text-based logo (no image file needed)
+        wordmark_frame = ctk.CTkFrame(header, fg_color="transparent")
+        wordmark_frame.pack(side=tk.LEFT, padx=(0, 15))
+
+        # "Nova" in bold teal
+        lbl_nova = ctk.CTkLabel(
+            wordmark_frame,
+            text="Nova",
+            font=("DM Sans", 22, "bold"),
+            text_color=NOVA_TEAL
+        )
+        lbl_nova.pack(side=tk.LEFT)
+
+        # "DSO Tracker" in regular dark
+        lbl_tracker = ctk.CTkLabel(
+            wordmark_frame,
+            text=" DSO Tracker",
+            font=("DM Sans", 22),
+            text_color="#141414"
+        )
+        lbl_tracker.pack(side=tk.LEFT)
 
         # Title Block
         title_frame = ctk.CTkFrame(header, fg_color="transparent")
@@ -517,7 +510,8 @@ class NovaManagerApp:
 
                 # Store the pending digest and prompt user
                 self.pending_update_digest = remote_digest
-                self.root.after(0, lambda: self._prompt_update_dialog(remote_digest))
+                # Use default argument to capture value, not reference
+                self.root.after(0, lambda d=remote_digest: self._prompt_update_dialog(d))
         except Exception as e:
             self._append_log(f"[warn] Docker Hub check failed: {e}")
 
@@ -990,8 +984,9 @@ class NovaManagerApp:
                 # Update available - show update dialog
                 self._append_log(f"[info] Update available on Docker Hub")
                 self.pending_update_digest = remote_digest
-                self.root.after(0, lambda: self._prompt_update_dialog(
-                    remote_digest,
+                # Use default argument to capture value, not reference
+                self.root.after(0, lambda d=remote_digest: self._prompt_update_dialog(
+                    d,
                     on_update_callback=self._perform_manual_update
                 ))
 
@@ -999,10 +994,11 @@ class NovaManagerApp:
                 # No update available - show info dialog
                 self._append_log("[info] Already on the latest version")
                 local_digest = get_local_image_digest()
-                self.root.after(0, lambda: self._show_info_dialog(
+                # Use default argument to capture value
+                self.root.after(0, lambda d=local_digest: self._show_info_dialog(
                     "No Update Available",
                     "Nova DSO Tracker is already on the latest version.",
-                    digest=local_digest
+                    digest=d
                 ))
 
         except Exception as e:

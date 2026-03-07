@@ -6,7 +6,6 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
-        ('nova_logo.png', '.'),
         ('assets', 'assets'),
         (certifi.where(), '.'),  # Bundle certifi's CA certificates for SSL
     ],
@@ -53,7 +52,7 @@ app = BUNDLE(
     icon='nova_logo.icns',
     bundle_identifier='com.mrantonsg.nova-dso-tracker',
     info_plist={
-        'CFBundleShortVersionString': '1.2.4',
+        'CFBundleShortVersionString': '1.2.5',
         'CFBundleVersion': '1',
         'NSHighResolutionCapable': 'True',
         'NSHumanReadableCopyright': 'Copyright © 2026 mrantonsg. https://nova-tracker.com'
