@@ -9,6 +9,7 @@ Migrated to CustomTkinter with Nova DSO Tracker design system.
 import customtkinter as ctk
 import tkinter as tk
 import subprocess
+import ssl
 import threading
 import time
 import webbrowser
@@ -17,6 +18,10 @@ import json
 import os
 import sys
 from PIL import Image
+import certifi
+
+# SSL context for HTTPS requests (uses certifi's bundled certificates)
+_SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
 # Helper for PyInstaller resource paths (needed before theme load)
 def _resource_path(relative_path: str) -> str:
@@ -1018,7 +1023,7 @@ class NovaManagerApp:
         """Check GitHub releases for a newer launcher version."""
         try:
             req = urllib.request.Request(GITHUB_RELEASES_API, headers={"User-Agent": "NovaLauncher"})
-            with urllib.request.urlopen(req, timeout=5) as response:
+            with urllib.request.urlopen(req, timeout=5, context=_SSL_CONTEXT) as response:
                 data = json.loads(response.read().decode())
                 latest_tag = data.get("tag_name", "").lstrip("v")
                 html_url = data.get("html_url", "")

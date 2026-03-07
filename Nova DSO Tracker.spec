@@ -1,11 +1,15 @@
 # -*- mode: python ; coding: utf-8 -*-
-
+import certifi
 
 a = Analysis(
     ['nova_manager.py'],
     pathex=[],
     binaries=[],
-    datas=[('nova_logo.png', '.'), ('assets', 'assets')],
+    datas=[
+        ('nova_logo.png', '.'),
+        ('assets', 'assets'),
+        (certifi.where(), '.'),  # Bundle certifi's CA certificates for SSL
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
