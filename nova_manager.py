@@ -979,6 +979,10 @@ class NovaManagerApp:
                 # Update available - show update dialog
                 self._append_log(f"[info] Update available on Docker Hub")
                 self.pending_update_digest = remote_digest
+                # Reset loading state BEFORE showing dialog so is_processing=False
+                # when the dialog's guard check runs (fixes macOS bug where dialog
+                # silently returned due to is_processing=True)
+                self.root.after(0, lambda: self.set_loading(False))
                 # Use default argument to capture value, not reference
                 self.root.after(0, lambda d=remote_digest: self._prompt_update_dialog(
                     d,
