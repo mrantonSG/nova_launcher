@@ -57,6 +57,7 @@ from docker_ops import (
     recreate_container,
     prune_images,
     get_container_image_digest,
+    get_local_image_digest,
     check_dockerhub_version,
     load_launcher_prefs,
     save_launcher_prefs,
@@ -532,8 +533,54 @@ class NovaManagerApp:
             width=100
         ).pack()
 
-    def _prompt_update_dialog(self, remote_digest: str):
-        """Show a dialog prompting the user to update."""
+    def _show_info_dialog(self, title: str, message: str, digest: str = None):
+        """Show an info dialog using CTkToplevel with optional digest display."""
+        dialog = ctk.CTkToplevel(self.root)
+        dialog.title(title)
+        dialog.geometry("420x200" if digest else "400x150")
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        # Center the dialog
+        dialog.geometry(f"+{self.root.winfo_x() + 40}+{self.root.winfo_y() + 100}")
+
+        # Message
+        ctk.CTkLabel(
+            dialog,
+            text=message,
+            font=("DM Sans", 13),
+            wraplength=350,
+            justify="center"
+        ).pack(pady=(30, 10) if digest else 30)
+
+        # Show digest if provided
+        if digest:
+            # Extract short digest for display
+            short_digest = digest.replace("sha256:", "")[:12]
+            ctk.CTkLabel(
+                dialog,
+                text=f"Image digest: {short_digest}",
+                font=("DM Sans", 10),
+                text_color="#666666"
+            ).pack(pady=(0, 20))
+
+        # OK button
+        ctk.CTkButton(
+            dialog,
+            text="OK",
+            command=dialog.destroy,
+            width=100,
+            font=("DM Sans", 12)
+        ).pack(pady=10)
+
+    def _prompt_update_dialog(self, remote_digest: str, on_update_callback=None):
+        """Show a dialog prompting the user to update.
+
+        Args:
+            remote_digest: The digest of the available update
+            on_update_callback: Optional callback for Update Now button. If None, uses default behavior.
+        """
         # Don't prompt if we're processing something else
         if self.is_processing:
             return
@@ -568,7 +615,10 @@ class NovaManagerApp:
 
         def on_update():
             dialog.destroy()
-            self._perform_image_update()
+            if on_update_callback:
+                on_update_callback()
+            else:
+                self._perform_image_update()
 
         def on_skip():
             dialog.destroy()
@@ -585,7 +635,20 @@ class NovaManagerApp:
         self._create_ghost_button(btn_frame, "Skip Version", on_skip_version, width=110).pack(side=tk.LEFT, padx=5)
 
     def _perform_image_update(self):
-        """Pull the latest image and recreate the container."""
+        """Pull the latest image and recreate the container (auto-starts after update)."""
+        self._do_image_update(auto_start=True)
+
+    def _perform_manual_update(self):
+        """Pull the latest image and recreate the container (does NOT auto-start)."""
+        self._do_image_update(auto_start=False)
+
+    def _do_image_update(self, auto_start: bool = True):
+        """Pull the latest image and recreate the container.
+
+        Args:
+            auto_start: If True, calls check_state after update to potentially start container.
+                       If False, just refreshes UI state without auto-starting.
+        """
         self.set_loading(True, "Downloading update...")
 
         def _update_thread():
@@ -620,10 +683,31 @@ class NovaManagerApp:
             # Clear pending
             self.pending_update_digest = None
 
+            # Show success message for manual update
+            self.root.after(0, lambda: self.lbl_update.configure(
+                text="↻ Update Complete",
+                text_color="#4CD964"
+            ))
+
             self.root.after(0, lambda: self.set_loading(False))
-            self.root.after(200, self.check_state)
+
+            if auto_start:
+                # Auto-start: check state which may start container
+                self.root.after(200, self.check_state)
+            else:
+                # Manual: just refresh UI, don't auto-start
+                self.root.after(200, self._refresh_ui_after_update)
+
+            # Reset button text after delay
+            def reset_button():
+                self.lbl_update.configure(text="↻ Check for Updates", text_color=NOVA_TEAL)
+            self.root.after(3000, reset_button)
 
         threading.Thread(target=_update_thread, daemon=True).start()
+
+    def _refresh_ui_after_update(self):
+        """Refresh UI state after manual update without auto-starting container."""
+        self.check_state()
 
     def update_ui(self, state):
         self.root.after(0, lambda: self._apply_ui_state(state))
@@ -868,41 +952,55 @@ class NovaManagerApp:
         threading.Thread(target=_launch_thread).start()
 
     def check_update(self):
+        """Manual update check - checks Docker Hub for updates and shows appropriate dialog."""
         self.lbl_update.configure(text="Checking...", text_color=NOVA_TEAL)
-        self.set_loading(True, "Checking for updates...")
-        threading.Thread(target=self._update_process).start()
+        self.set_loading(True, "Checking Docker Hub for updates...")
+        threading.Thread(target=self._check_update_process, daemon=True).start()
 
-    def _update_process(self):
-        # 1. Pull the latest image
-        self._append_log(f"Pulling {DOCKER_IMAGE_FULL}...")
-        success, msg = pull_image()
-        if not success:
-            self.root.after(0, lambda: self._show_error_dialog("Update Failed",
-                                                                f"Failed to pull the latest image.\n\n{msg}"))
+    def _check_update_process(self):
+        """Background thread to check for updates and show appropriate dialog."""
+        try:
+            # Check Docker Hub for updates
+            update_available, remote_digest, error = check_dockerhub_version()
+
+            if error:
+                # Check failed - show error dialog
+                self._append_log(f"[warn] Update check failed: {error}")
+                self.root.after(0, lambda: self._show_info_dialog(
+                    "Update Check Failed",
+                    "Could not reach Docker Hub. Please check your internet connection."
+                ))
+
+            elif update_available and remote_digest:
+                # Update available - show update dialog
+                self._append_log(f"[info] Update available on Docker Hub")
+                self.pending_update_digest = remote_digest
+                self.root.after(0, lambda: self._prompt_update_dialog(
+                    remote_digest,
+                    on_update_callback=self._perform_manual_update
+                ))
+
+            else:
+                # No update available - show info dialog
+                self._append_log("[info] Already on the latest version")
+                local_digest = get_local_image_digest()
+                self.root.after(0, lambda: self._show_info_dialog(
+                    "No Update Available",
+                    "Nova DSO Tracker is already on the latest version.",
+                    digest=local_digest
+                ))
+
+        except Exception as e:
+            self._append_log(f"[error] Update check error: {e}")
+            self.root.after(0, lambda: self._show_info_dialog(
+                "Update Check Failed",
+                f"An error occurred while checking for updates.\n\n{str(e)}"
+            ))
+
+        finally:
+            # Reset UI state
+            self.root.after(0, lambda: self.lbl_update.configure(text="↻ Check for Updates", text_color=NOVA_TEAL))
             self.root.after(0, lambda: self.set_loading(False))
-            self.root.after(0, lambda: self.lbl_update.configure(text="↻ Check for Updates"))
-            return
-
-        # 2. Stop current container
-        stop_container()
-
-        # 3. Force recreate
-        recreate_container()
-
-        # 4. Cleanup
-        prune_images()
-
-        time.sleep(1)
-        self.root.after(0, lambda: self.lbl_update.configure(
-            text="↻ Update Applied",
-            text_color="#4CD964"
-        ))
-
-        self.root.after(0, lambda: self.set_loading(False))
-        self.root.after(200, self.check_state)
-
-        time.sleep(UPDATE_BANNER_DISPLAY_TIME)
-        self.root.after(0, lambda: self.lbl_update.configure(text="↻ Check for Updates"))
 
     # --- Launcher Self-Update Check ---
 
