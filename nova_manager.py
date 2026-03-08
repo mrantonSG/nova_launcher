@@ -22,6 +22,14 @@ import certifi
 # SSL context for HTTPS requests (uses certifi's bundled certificates)
 _SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
+
+def _subprocess_flags() -> int:
+    """Return CREATE_NO_WINDOW flag on Windows to prevent console flashing."""
+    if sys.platform == "win32":
+        return subprocess.CREATE_NO_WINDOW
+    return 0
+
+
 # Helper for PyInstaller resource paths (needed before theme load)
 def _resource_path(relative_path: str) -> str:
     """Get absolute path to resource, works for dev and for PyInstaller."""
@@ -911,7 +919,10 @@ class NovaManagerApp:
             launched = False
             try:
                 if sys.platform == "darwin":
-                    subprocess.run(["open", "-a", "Docker"])
+                    subprocess.run(
+                        ["open", "-a", "Docker"],
+                        creationflags=_subprocess_flags()
+                    )
                     launched = True
                 elif sys.platform == "win32":
                     win_path = r"C:\Program Files\Docker\Docker\Docker Desktop.exe"
@@ -919,11 +930,19 @@ class NovaManagerApp:
                         os.startfile(win_path)
                         launched = True
                     else:
-                        subprocess.run(["start", "docker"], shell=True)
+                        subprocess.run(
+                            ["start", "docker"],
+                            shell=True,
+                            creationflags=_subprocess_flags()
+                        )
                         launched = True
                 elif sys.platform == "linux":
-                    result = subprocess.run(["systemctl", "start", "docker"],
-                                            capture_output=True, text=True)
+                    result = subprocess.run(
+                        ["systemctl", "start", "docker"],
+                        capture_output=True,
+                        text=True,
+                        creationflags=_subprocess_flags()
+                    )
                     if result.returncode == 0:
                         launched = True
                     else:
