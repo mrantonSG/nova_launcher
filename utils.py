@@ -16,6 +16,13 @@ import webbrowser
 from config import DASHBOARD_URL, WEB_READY_TIMEOUT
 
 
+def _subprocess_flags() -> int:
+    """Return CREATE_NO_WINDOW flag on Windows to prevent console flashing."""
+    if sys.platform == "win32":
+        return subprocess.CREATE_NO_WINDOW
+    return 0
+
+
 def resource_path(relative_path: str) -> str:
     """
     Get absolute path to resource, works for dev and for PyInstaller.
@@ -117,7 +124,8 @@ def open_dashboard() -> None:
             subprocess.Popen(
                 ["open", DASHBOARD_URL],
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
+                stderr=subprocess.DEVNULL,
+                creationflags=_subprocess_flags()
             )
 
         elif sys.platform == "linux":
@@ -127,7 +135,8 @@ def open_dashboard() -> None:
                 subprocess.Popen(
                     ["wmctrl", "-a", "browser"],
                     stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL
+                    stderr=subprocess.DEVNULL,
+                    creationflags=_subprocess_flags()
                 )
 
         elif sys.platform == "win32":
@@ -140,7 +149,8 @@ def open_dashboard() -> None:
                     'Select-Object -Last 1 | ForEach-Object { $_.Visible = $true }'
                 ],
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
+                stderr=subprocess.DEVNULL,
+                creationflags=_subprocess_flags()
             )
     except Exception:
         # Fail silently - URL may still have opened

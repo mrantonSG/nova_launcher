@@ -11,6 +11,7 @@ import os
 import shutil
 import ssl
 import subprocess
+import sys
 import time
 import urllib.request
 import urllib.error
@@ -20,6 +21,13 @@ import certifi
 
 # SSL context for HTTPS requests (uses certifi's bundled certificates)
 _SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
+
+
+def _subprocess_flags() -> int:
+    """Return CREATE_NO_WINDOW flag on Windows to prevent console flashing."""
+    if sys.platform == "win32":
+        return subprocess.CREATE_NO_WINDOW
+    return 0
 
 from config import (
     DOCKER_IMAGE,
@@ -75,6 +83,7 @@ def run_command(
             capture_output=True,
             text=True,
             timeout=timeout,
+            creationflags=_subprocess_flags(),
         )
         return result.stdout.strip(), result.stderr.strip(), result.returncode
     except subprocess.TimeoutExpired:
