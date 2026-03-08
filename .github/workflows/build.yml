@@ -56,7 +56,6 @@ jobs:
         run: >
           pyinstaller --noconfirm --onefile --windowed
           --name "Nova DSO Tracker"
-          --add-data "nova_logo.png;."
           --add-data "assets;assets"
           --hidden-import PIL._tkinter_finder
           --icon "nova_logo.ico"
@@ -90,7 +89,6 @@ jobs:
         run: >
           pyinstaller --noconfirm --onefile --windowed
           --name "nova-dso-tracker"
-          --add-data "nova_logo.png:."
           --add-data "assets:assets"
           --hidden-import PIL._tkinter_finder
           nova_manager.py

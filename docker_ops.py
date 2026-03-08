@@ -211,8 +211,9 @@ def start_container(callback=None) -> Tuple[bool, str]:
         if not create_compose_file():
             return False, "Failed to create docker-compose.yml"
 
+    # Use explicit -f flag for Windows compatibility
     stdout, stderr, rc = run_command(
-        ["docker", "compose", "up", "-d"],
+        ["docker", "compose", "-f", COMPOSE_FILE, "up", "-d"],
         timeout=DOCKER_CMD_TIMEOUT,
     )
 
@@ -236,8 +237,9 @@ def stop_container() -> Tuple[bool, str]:
     Returns:
         Tuple of (success: bool, message: str)
     """
+    # Use explicit -f flag for Windows compatibility
     stdout, stderr, rc = run_command(
-        ["docker", "compose", "stop"],
+        ["docker", "compose", "-f", COMPOSE_FILE, "stop"],
         timeout=DOCKER_CMD_TIMEOUT,
     )
 
@@ -253,8 +255,9 @@ def recreate_container() -> Tuple[bool, str]:
     Returns:
         Tuple of (success: bool, message: str)
     """
+    # Use explicit -f flag for Windows compatibility
     stdout, stderr, rc = run_command(
-        ["docker", "compose", "up", "-d", "--force-recreate"],
+        ["docker", "compose", "-f", COMPOSE_FILE, "up", "-d", "--force-recreate"],
         timeout=DOCKER_CMD_TIMEOUT,
     )
 

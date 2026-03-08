@@ -137,6 +137,10 @@ class NovaManagerApp:
 
         self.setup_ui()
 
+        # Log the paths being used (helpful for debugging on Windows)
+        self._append_log(f"Install directory: {NOVA_DIR}")
+        self._append_log(f"Compose file path: {COMPOSE_FILE}")
+
         # Start Background Monitor
         self.monitor_thread = threading.Thread(target=self.monitor_loop, daemon=True)
         self.monitor_thread.start()
