@@ -231,7 +231,7 @@ class NovaManagerApp:
         self.progress.set(0)
 
         # Buttons Row
-        self.btn_row = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        self.btn_row = ctk.CTkFrame(self.content_frame, fg_color="transparent", border_width=0)
         self.btn_row.pack(pady=15)
 
         self.btn_main = ctk.CTkButton(
@@ -261,7 +261,7 @@ class NovaManagerApp:
         self.lbl_version.pack(pady=(5, 0))
 
         # --- Log Viewer ---
-        log_frame = ctk.CTkFrame(self.root, fg_color="transparent")
+        log_frame = ctk.CTkFrame(self.root, fg_color="transparent", border_width=0)
         log_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(5, 5))
 
         log_header = ctk.CTkFrame(log_frame, fg_color="transparent")
