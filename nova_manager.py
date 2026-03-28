@@ -174,7 +174,7 @@ class NovaManagerApp:
         lbl_nova = ctk.CTkLabel(
             wordmark_frame,
             text="Nova",
-            font=("DM Sans", 22, "bold"),
+            font=("DM Sans", 26, "bold"),
             text_color=NOVA_TEAL
         )
         lbl_nova.pack(side=tk.LEFT)
@@ -183,7 +183,7 @@ class NovaManagerApp:
         lbl_tracker = ctk.CTkLabel(
             wordmark_frame,
             text=" DSO Tracker",
-            font=("DM Sans", 22),
+            font=("DM Sans", 26),
             text_color="#141414"
         )
         lbl_tracker.pack(side=tk.LEFT)
@@ -195,7 +195,7 @@ class NovaManagerApp:
         self.lbl_status_header = ctk.CTkLabel(
             status_frame,
             text="Initializing...",
-            font=("DM Sans", 13)
+            font=("DM Sans", 15)
         )
         self.lbl_status_header.pack(side=tk.RIGHT, padx=(0, 8))
 
@@ -203,7 +203,7 @@ class NovaManagerApp:
         self.lbl_dot = ctk.CTkLabel(
             status_frame,
             text="●",
-            font=("DM Sans", 14),
+            font=("DM Sans", 16),
             text_color=STATUS_STOPPED
         )
         self.lbl_dot.pack(side=tk.RIGHT)
@@ -220,7 +220,7 @@ class NovaManagerApp:
         self.lbl_center_info = ctk.CTkLabel(
             self.content_frame,
             text="Checking status...",
-            font=("DM Sans", 12),
+            font=("DM Sans", 14),
             wraplength=400,
             justify="center"
         )
@@ -240,7 +240,7 @@ class NovaManagerApp:
             command=self.on_main_action,
             width=140,
             height=38,
-            font=("DM Sans", 13, "bold")
+            font=("DM Sans", 15, "bold")
         )
         self.btn_main.pack(side=tk.LEFT, padx=10)
 
@@ -256,7 +256,7 @@ class NovaManagerApp:
         self.lbl_version = ctk.CTkLabel(
             self.content_frame,
             text="",
-            font=("DM Sans", 10)
+            font=("DM Sans", 12)
         )
         self.lbl_version.pack(pady=(5, 0))
 
@@ -269,14 +269,14 @@ class NovaManagerApp:
         ctk.CTkLabel(
             log_header,
             text="Logs",
-            font=("DM Sans", 10, "bold")
+            font=("DM Sans", 12, "bold")
         ).pack(side=tk.LEFT)
 
         self.log_toggle_var = tk.BooleanVar(value=False)
         self.log_toggle_btn = ctk.CTkLabel(
             log_header,
             text="Show",
-            font=("DM Sans", 10),
+            font=("DM Sans", 12),
             text_color=NOVA_TEAL,
             cursor="hand2"
         )
@@ -286,7 +286,7 @@ class NovaManagerApp:
         self.log_text = ctk.CTkTextbox(
             log_frame,
             height=10,
-            font=("Courier New", 10),
+            font=("Courier New", 12),
             state="disabled",
             wrap="word"
         )
@@ -301,7 +301,7 @@ class NovaManagerApp:
         self.lbl_update = ctk.CTkLabel(
             footer,
             text="↻ Check for Updates",
-            font=("DM Sans", 11),
+            font=("DM Sans", 13),
             cursor="hand2"
         )
         self.lbl_update.pack(side=tk.BOTTOM, pady=(10, 0))
@@ -311,7 +311,7 @@ class NovaManagerApp:
         self.lbl_launcher_ver = ctk.CTkLabel(
             footer,
             text=f"Launcher v{APP_VERSION}",
-            font=("DM Sans", 9),
+            font=("DM Sans", 11),
             text_color="#888888"
         )
         self.lbl_launcher_ver.pack(side=tk.BOTTOM)
@@ -321,7 +321,7 @@ class NovaManagerApp:
         self.lbl_update_banner = ctk.CTkLabel(
             self.update_banner,
             text="",
-            font=("DM Sans", 10),
+            font=("DM Sans", 12),
             text_color="#2E7D32",
             cursor="hand2"
         )
@@ -335,7 +335,7 @@ class NovaManagerApp:
             command=command,
             width=width,
             height=height,
-            font=("DM Sans", 13, "bold"),
+            font=("DM Sans", 15, "bold"),
             fg_color=DANGER_BG,
             hover_color=DANGER_HOVER,
             text_color=DANGER,
@@ -351,7 +351,7 @@ class NovaManagerApp:
             command=command,
             width=width,
             height=height,
-            font=("DM Sans", 12),
+            font=("DM Sans", 14),
             fg_color="transparent",
             hover_color=GHOST_HOVER,
             text_color=GHOST_TEXT,
@@ -367,7 +367,7 @@ class NovaManagerApp:
             command=command,
             width=width,
             height=height,
-            font=("DM Sans", 13, "bold"),
+            font=("DM Sans", 15, "bold"),
             fg_color=NOVA_TEAL,
             hover_color=NOVA_TEAL_HOVER,
             text_color="#ffffff",
@@ -537,7 +537,7 @@ class NovaManagerApp:
         ctk.CTkLabel(
             dialog,
             text=message,
-            font=("DM Sans", 12),
+            font=("DM Sans", 14),
             wraplength=350,
             justify="center"
         ).pack(pady=30)
@@ -565,7 +565,7 @@ class NovaManagerApp:
         ctk.CTkLabel(
             dialog,
             text=message,
-            font=("DM Sans", 13),
+            font=("DM Sans", 15),
             wraplength=350,
             justify="center"
         ).pack(pady=(30, 10) if digest else 30)
@@ -577,7 +577,7 @@ class NovaManagerApp:
             ctk.CTkLabel(
                 dialog,
                 text=f"Image digest: {short_digest}",
-                font=("DM Sans", 10),
+                font=("DM Sans", 12),
                 text_color="#666666"
             ).pack(pady=(0, 20))
 
@@ -587,7 +587,7 @@ class NovaManagerApp:
             text="OK",
             command=dialog.destroy,
             width=100,
-            font=("DM Sans", 12)
+            font=("DM Sans", 14)
         ).pack(pady=10)
 
     def _prompt_update_dialog(self, remote_digest: str, on_update_callback=None):
@@ -616,13 +616,13 @@ class NovaManagerApp:
         ctk.CTkLabel(
             dialog,
             text="A newer version of Nova DSO Tracker is available!",
-            font=("DM Sans", 14, "bold")
+            font=("DM Sans", 16, "bold")
         ).pack(pady=(25, 10))
 
         ctk.CTkLabel(
             dialog,
             text=f"Image: {DOCKER_IMAGE}:{DOCKER_TAG}",
-            font=("DM Sans", 11)
+            font=("DM Sans", 13)
         ).pack(pady=(0, 25))
 
         # Buttons frame

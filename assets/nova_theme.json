@@ -138,17 +138,17 @@
   "CTkFont": {
     "macOS": {
       "family": "DM Sans",
-      "size": 13,
+      "size": 15,
       "weight": "normal"
     },
     "Windows": {
       "family": "DM Sans",
-      "size": 13,
+      "size": 15,
       "weight": "normal"
     },
     "Linux": {
       "family": "DM Sans",
-      "size": 13,
+      "size": 15,
       "weight": "normal"
     }
   }
