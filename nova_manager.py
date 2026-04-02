@@ -125,6 +125,7 @@ class NovaManagerApp:
         self.root.title("Nova DSO Tracker Launcher")
         self.root.geometry("500x580")
         self.root.resizable(False, False)
+        self._expanded_height = 580
 
         # Graceful shutdown handler
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -327,6 +328,12 @@ class NovaManagerApp:
         )
         self.lbl_update_banner.pack(padx=10, pady=5)
 
+        # Set initial compact height since logs start hidden
+        self.root.update_idletasks()
+        compact_height = self.root.winfo_reqheight()
+        self.root.geometry(f"500x{compact_height}")
+        self.root.minsize(500, compact_height)
+
     def _create_danger_button(self, parent, text, command, width=140, height=38):
         """Create a danger/stop button with Nova styling."""
         return ctk.CTkButton(
@@ -376,13 +383,26 @@ class NovaManagerApp:
 
     def _toggle_logs(self):
         if self.log_toggle_var.get():
+            # Hiding logs — store current expanded height before collapsing
+            self.root.update_idletasks()
+            self._expanded_height = self.root.winfo_height()
             self.log_text.pack_forget()
             self.log_toggle_btn.configure(text="Show")
             self.log_toggle_var.set(False)
+            # Shrink window to fit only the visible widgets
+            self.root.update_idletasks()
+            width = self.root.winfo_width()
+            compact_height = self.root.winfo_reqheight()
+            self.root.geometry(f"{width}x{compact_height}")
+            self.root.minsize(width, compact_height)
         else:
+            # Showing logs — restore the expanded height
             self.log_text.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
             self.log_toggle_btn.configure(text="Hide")
             self.log_toggle_var.set(True)
+            self.root.update_idletasks()
+            width = self.root.winfo_width()
+            self.root.geometry(f"{width}x{self._expanded_height}")
 
     def _append_log(self, text):
         """Thread-safe append to the log viewer with line limit."""
