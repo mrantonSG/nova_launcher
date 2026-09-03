@@ -1,0 +1,58 @@
+/* Nova DSO Tracker — web design tokens (light mode)
+   Source of truth: the Nova web app design system; the palette
+   mirrors the CustomTkinter theme in assets/nova_theme.json. */
+
+:root {
+  --primary-color: #83b4c5; /* Nova brand teal */
+  --primary-hover: #6a9eb0;
+  --bg-primary: #f2f0ed;    /* warm off-white page background */
+  --bg-secondary: #ffffff;  /* card / surface */
+  --border-color: #e5e2dc;
+  --text-primary: #141414;
+  --text-secondary: #4a4a4a;
+
+  --font-family: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'DM Mono', 'Courier New', monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  padding: 14px 24px;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.app-header h1 {
+  font-size: 25px;
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+
+.app-header h1 .wordmark {
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+main {
+  padding: 24px;
+}

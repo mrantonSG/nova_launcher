@@ -1,0 +1,25 @@
+{
+  "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-utils-schema/schema.json",
+  "identifier": "default",
+  "description": "Default capability for Nova DSO Tracker",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "allow-docker-installed",
+    "allow-docker-daemon-running",
+    "allow-nova-installed",
+    "allow-container-status",
+    "allow-dashboard-reachable",
+    "allow-get-app-state",
+    "allow-start-tracker",
+    "allow-stop-tracker",
+    "allow-pull-image",
+    "allow-recreate-tracker",
+    "allow-prune-images",
+    "allow-open-dashboard",
+    "allow-open-docker-download",
+    "allow-launch-docker"
+  ],
+  "globalShortcuts": []
+}
