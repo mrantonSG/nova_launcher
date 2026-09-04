@@ -11,6 +11,15 @@
   --text-primary: #141414;
   --text-secondary: #4a4a4a;
 
+  /* Status dot colors. "running" reuses --primary-color (the brand teal,
+     matching STATUS_RUNNING in nova_manager.py); the rest are muted,
+     warm-tone counterparts of the CustomTkinter originals
+     (#FF9500 / #888888 / #a04040) so they stay in the teal + warm
+     neutral palette family. */
+  --status-pending: #c08a3a; /* muted warm amber — in progress / needs attention */
+  --status-idle: #968b7d;    /* muted warm gray — stopped / not installed */
+  --status-down: #a04040;    /* muted brick — hard blocker (Docker missing) */
+
   --font-family: 'DM Sans', system-ui, sans-serif;
   --font-mono: 'DM Mono', 'Courier New', monospace;
 }
@@ -55,4 +64,116 @@ body {
 
 main {
   padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+/* --- Status row ----------------------------------------------------- */
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: var(--status-idle);
+  flex-shrink: 0;
+}
+
+.status-label {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.status-detail {
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+/* --- Action buttons -------------------------------------------------- */
+
+.action-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn {
+  font-family: var(--font-family);
+  font-size: 15px;
+  font-weight: 500;
+  padding: 10px 24px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: var(--text-primary);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--primary-hover);
+}
+
+.btn-secondary {
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+  border-color: var(--border-color);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+/* Small spinner shown in the primary button while initializing/busy.
+   Uses currentColor, so no palette color is introduced. */
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* --- Error surface ---------------------------------------------------- */
+
+.error-box {
+  max-width: 560px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--status-down);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }

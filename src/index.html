@@ -18,6 +18,25 @@
       <h1><span class="wordmark">Nova</span> DSO Tracker</h1>
     </header>
 
-    <main id="app-content"></main>
+    <main id="app-content">
+      <div class="status-row">
+        <span class="status-dot" id="status-dot"></span>
+        <span class="status-label" id="status-label" aria-live="polite">Checking status&hellip;</span>
+      </div>
+
+      <p class="status-detail" id="status-detail"></p>
+
+      <div class="action-row">
+        <button class="btn btn-primary" id="primary-action" type="button" disabled>
+          <span class="spinner" id="spinner" hidden></span>
+          <span id="primary-action-label">&hellip;</span>
+        </button>
+        <button class="btn btn-secondary" id="stop-action" type="button" disabled>Stop</button>
+      </div>
+
+      <p class="error-box" id="error-box" role="alert" hidden></p>
+    </main>
+
+    <script src="./lib/app.js"></script>
   </body>
 </html>
