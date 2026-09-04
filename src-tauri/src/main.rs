@@ -3,6 +3,11 @@
 mod actions;
 mod docker;
 mod launch;
+// Temporary: `check_launcher_update` is not registered in
+// `generate_handler!` yet — the image-update step wires the update
+// commands in together. Drop this once that happens.
+#[allow(dead_code)]
+mod updates;
 
 // Bring every command function into scope so `generate_handler!` can reference
 // them by bare name. Each `#[tauri::command]` fn above is `pub`, so the
