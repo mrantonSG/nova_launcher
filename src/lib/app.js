@@ -228,18 +228,87 @@ const launcherOpenBtn = document.getElementById("launcher-update-open");
 const launcherDismissBtn = document.getElementById("launcher-update-dismiss");
 
 const imageBanner = document.getElementById("image-update-banner");
+const imageNotesToggle = document.getElementById("image-notes-toggle");
+const imageNotesEl = document.getElementById("image-release-notes");
+const imageOpenBtn = document.getElementById("image-update-open");
 const imageUpdateNowBtn = document.getElementById("image-update-now");
 const imageUpdateSkipBtn = document.getElementById("image-update-skip");
 const imageDismissBtn = document.getElementById("image-update-dismiss");
 
 let imageRemoteDigest = "";
 
+// Renders GitHub release-note markdown (a narrow, predictable subset —
+// headings, bold, bullet lists, paragraphs) to HTML. Escapes the input
+// first since this is untrusted text from a GitHub API response, then
+// pattern-matches rather than pulling in a markdown library for a feature
+// this small.
+function renderReleaseNotes(text) {
+  const escapeHtml = (s) =>
+    s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const applyInline = (line) => line.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+
+  const lines = escapeHtml(text || "").split(/\r?\n/);
+  const html = [];
+  let list = [];
+  let para = [];
+
+  const flushList = () => {
+    if (list.length) {
+      html.push(`<ul>${list.join("")}</ul>`);
+      list = [];
+    }
+  };
+  const flushPara = () => {
+    if (para.length) {
+      html.push(`<p>${para.join("<br>")}</p>`);
+      para = [];
+    }
+  };
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) {
+      flushList();
+      flushPara();
+      continue;
+    }
+
+    const heading = line.match(/^#{1,6}\s+(.*)$/);
+    if (heading) {
+      flushList();
+      flushPara();
+      html.push(`<h4>${applyInline(heading[1])}</h4>`);
+      continue;
+    }
+
+    const bullet = line.match(/^-\s+(.*)$/);
+    if (bullet) {
+      flushPara();
+      list.push(`<li>${applyInline(bullet[1])}</li>`);
+      continue;
+    }
+
+    flushList();
+    para.push(applyInline(line));
+  }
+  flushList();
+  flushPara();
+
+  return html.join("");
+}
+
 async function checkLauncherUpdate() {
   try {
     const info = await invoke("check_launcher_update");
     if (!info || !info.has_update) return;
     launcherTextEl.textContent = `A new version (v${info.latest_version}) is available`;
-    launcherNotesEl.textContent = info.release_notes;
+    launcherNotesEl.innerHTML = renderReleaseNotes(info.release_notes);
     launcherOpenBtn.onclick = () =>
       invoke("open_url", { url: info.release_url }).catch((err) =>
         showError(errorMessage(err))
@@ -266,11 +335,34 @@ async function checkImageUpdate() {
     const info = await invoke("check_image_update");
     if (!info || !info.has_update) return;
     imageRemoteDigest = info.remote_digest;
+
+    // Reset each run rather than trusting the DOM's initial `hidden` —
+    // this may be a re-check after a prior run left notes expanded.
+    imageNotesEl.hidden = true;
+    imageNotesToggle.textContent = "View Release Notes";
+    const hasNotes = Boolean(info.release_notes);
+    imageNotesToggle.hidden = !hasNotes;
+    imageOpenBtn.hidden = !hasNotes;
+    if (hasNotes) {
+      imageNotesEl.innerHTML = renderReleaseNotes(info.release_notes);
+      imageOpenBtn.onclick = () =>
+        invoke("open_url", { url: info.release_url }).catch((err) =>
+          showError(errorMessage(err))
+        );
+    }
+
     imageBanner.hidden = false;
   } catch {
     // best-effort — no banner if the check itself rejects
   }
 }
+
+imageNotesToggle.addEventListener("click", () => {
+  imageNotesEl.hidden = !imageNotesEl.hidden;
+  imageNotesToggle.textContent = imageNotesEl.hidden
+    ? "View Release Notes"
+    : "Hide Release Notes";
+});
 
 imageUpdateNowBtn.addEventListener("click", async () => {
   imageUpdateNowBtn.disabled = true;

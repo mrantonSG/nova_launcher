@@ -3,10 +3,6 @@
 mod actions;
 mod docker;
 mod launch;
-// Temporary: `check_launcher_update` is not registered in
-// `generate_handler!` yet — the image-update step wires the update
-// commands in together. Drop this once that happens.
-#[allow(dead_code)]
 mod updates;
 
 // Bring every command function into scope so `generate_handler!` can reference
@@ -17,6 +13,7 @@ mod updates;
 use actions::*;
 use docker::*;
 use launch::*;
+use updates::*;
 
 fn main () {
   tauri::Builder::default()
@@ -38,7 +35,12 @@ fn main () {
       // Opening external resources
       open_dashboard,
       open_docker_download,
+      open_url,
       launch_docker,
+      // Update checks
+      check_launcher_update,
+      check_image_update,
+      skip_image_version,
     ])
     .run(tauri::generate_context!())
     .expect("error while running Nova DSO Tracker");

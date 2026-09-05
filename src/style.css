@@ -125,6 +125,10 @@ main {
   cursor: default;
 }
 
+.btn[hidden] {
+  display: none;
+}
+
 .btn-primary {
   background-color: var(--primary-color);
   color: var(--text-primary);
@@ -160,6 +164,105 @@ main {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* --- Update banners ---------------------------------------------------- */
+
+.update-banner {
+  width: 100%;
+  max-width: 560px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.update-banner-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.update-banner-text {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.update-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.btn-link {
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--primary-hover);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.btn-link:hover {
+  color: var(--text-primary);
+}
+
+.update-banner-dismiss {
+  font-size: 16px;
+  line-height: 1;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.update-banner-dismiss:hover {
+  color: var(--text-primary);
+}
+
+.update-banner-notes {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+.update-banner-notes h4 {
+  margin: 10px 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.update-banner-notes h4:first-child {
+  margin-top: 0;
+}
+
+.update-banner-notes p {
+  margin: 0 0 8px;
+}
+
+.update-banner-notes ul {
+  margin: 0 0 8px;
+  padding-left: 18px;
+}
+
+.update-banner-notes p:last-child,
+.update-banner-notes ul:last-child {
+  margin-bottom: 0;
+}
+
+.update-banner-notes li {
+  margin-bottom: 2px;
 }
 
 /* --- Error surface ---------------------------------------------------- */

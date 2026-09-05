@@ -19,7 +19,12 @@ fn main () {
           // launch.rs
           "open_dashboard",
           "open_docker_download",
+          "open_url",
           "launch_docker",
+          // updates.rs
+          "check_launcher_update",
+          "check_image_update",
+          "skip_image_version",
         ]),
       ),
   )

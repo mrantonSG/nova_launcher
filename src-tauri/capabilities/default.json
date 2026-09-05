@@ -19,7 +19,11 @@
     "allow-prune-images",
     "allow-open-dashboard",
     "allow-open-docker-download",
-    "allow-launch-docker"
+    "allow-open-url",
+    "allow-launch-docker",
+    "allow-check-launcher-update",
+    "allow-check-image-update",
+    "allow-skip-image-version"
   ],
   "globalShortcuts": []
 }

@@ -34,6 +34,32 @@
         <button class="btn btn-secondary" id="stop-action" type="button" disabled>Stop</button>
       </div>
 
+      <div class="update-banner" id="launcher-update-banner" hidden>
+        <div class="update-banner-row">
+          <span class="update-banner-text" id="launcher-update-text"></span>
+          <div class="update-banner-actions">
+            <button class="btn-link" id="launcher-notes-toggle" type="button">View Release Notes</button>
+            <button class="btn-link" id="launcher-update-open" type="button">Open Release Page</button>
+            <button class="update-banner-dismiss" id="launcher-update-dismiss" type="button" aria-label="Dismiss">&times;</button>
+          </div>
+        </div>
+        <div class="update-banner-notes" id="launcher-release-notes" hidden></div>
+      </div>
+
+      <div class="update-banner" id="image-update-banner" hidden>
+        <div class="update-banner-row">
+          <span class="update-banner-text">An updated Nova image is available</span>
+          <div class="update-banner-actions">
+            <button class="btn-link" id="image-notes-toggle" type="button">View Release Notes</button>
+            <button class="btn-link" id="image-update-open" type="button">Open Release Page</button>
+            <button class="btn-link" id="image-update-now" type="button">Update Now</button>
+            <button class="btn-link" id="image-update-skip" type="button">Skip This Version</button>
+            <button class="update-banner-dismiss" id="image-update-dismiss" type="button" aria-label="Dismiss">&times;</button>
+          </div>
+        </div>
+        <div class="update-banner-notes" id="image-release-notes" hidden></div>
+      </div>
+
       <p class="error-box" id="error-box" role="alert" hidden></p>
     </main>
 
