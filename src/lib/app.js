@@ -9,7 +9,7 @@
  * initializing -> running (first failing check wins).
  */
 
-const invoke = (command) => window.__TAURI__.core.invoke(command);
+const invoke = (command, args) => window.__TAURI__.core.invoke(command, args);
 
 // Poll cadence — mirrors MONITOR_INTERVAL (3s) in config.py.
 const POLL_INTERVAL_MS = 3000;
@@ -95,6 +95,13 @@ let busy = false;
 let busyLabel = "";
 let polling = false;
 
+// While set to a future timestamp, poll() (both the setInterval tick and any
+// re-poll-after-action) is a no-op. Used only by launch_docker below, whose
+// `open -a Docker` returns almost instantly — long before the daemon is
+// actually up — so an immediate re-poll would still see docker_stopped and
+// the button would flash back to "Launch Docker" for a fraction of a second.
+let pollSuppressedUntil = 0;
+
 function render() {
   const cfg = STATES[currentState];
   if (!cfg) {
@@ -115,7 +122,8 @@ function render() {
   // is mid-initialization.
   spinnerEl.hidden = !(busy || currentState === "initializing");
   primaryBtn.disabled = busy || !cfg || !cfg.run;
-  stopBtn.disabled = busy || !cfg || !cfg.stopEnabled;
+  stopBtn.hidden = !cfg || !cfg.stopEnabled;
+  stopBtn.disabled = busy;
   lastRenderedState = currentState;
 }
 
@@ -142,6 +150,7 @@ function errorMessage(err) {
 // up to ~12s if the Docker daemon is wedged, so the 3s interval can overlap).
 async function poll() {
   if (polling) return;
+  if (Date.now() < pollSuppressedUntil) return;
   polling = true;
   try {
     const state = await invoke("get_app_state");
@@ -158,33 +167,143 @@ async function poll() {
 
 // Run a state-changing action, then re-poll immediately so the UI reflects
 // the new state without waiting for the next 3s tick.
-async function runAction(action, labelWhileBusy) {
+//
+// poll() is awaited *before* busy is cleared so currentState is already
+// fresh by the time we render as non-busy — otherwise the button would
+// flash back to the pre-action state (busy=false, stale currentState) for
+// one frame before the real post-action state lands.
+async function runAction(action, labelWhileBusy, { minDurationMs = 0 } = {}) {
   if (busy) return;
   busy = true;
   busyLabel = labelWhileBusy;
   clearError();
   render();
+  const startedAt = Date.now();
   try {
     await action();
   } catch (err) {
     showError(errorMessage(err));
   } finally {
+    if (minDurationMs > 0) {
+      // Hold the busy state (and block polling) until the minimum has
+      // elapsed, then let poll() below pick up the real post-action state.
+      pollSuppressedUntil = startedAt + minDurationMs;
+      const remaining = pollSuppressedUntil - Date.now();
+      if (remaining > 0) await new Promise((r) => setTimeout(r, remaining));
+      pollSuppressedUntil = 0;
+    }
+    await poll();
     busy = false;
     busyLabel = "";
     render();
-    poll();
   }
 }
 
 primaryBtn.addEventListener("click", () => {
   const cfg = STATES[currentState];
   if (!cfg || !cfg.run) return;
-  runAction(cfg.run, cfg.busyLabel);
+  // launch_docker returns almost immediately (it just fires `open -a
+  // Docker`) — the daemon isn't actually up yet, so give it a grace period
+  // before trusting get_app_state() again. See pollSuppressedUntil above.
+  const opts = currentState === "docker_stopped" ? { minDurationMs: 5000 } : {};
+  runAction(cfg.run, cfg.busyLabel, opts);
 });
 
 stopBtn.addEventListener("click", () =>
   runAction(() => invoke("stop_tracker"), "Stopping…")
 );
+
+// --- Update banners -------------------------------------------------
+//
+// Checked once at startup (not polled) via check_launcher_update() and
+// check_image_update() in updates.rs. Both are best-effort: a failed check
+// resolves with has_update: false (or, defensively, rejects), so either way
+// the banner just stays hidden rather than surfacing an error.
+
+const launcherBanner = document.getElementById("launcher-update-banner");
+const launcherTextEl = document.getElementById("launcher-update-text");
+const launcherNotesToggle = document.getElementById("launcher-notes-toggle");
+const launcherNotesEl = document.getElementById("launcher-release-notes");
+const launcherOpenBtn = document.getElementById("launcher-update-open");
+const launcherDismissBtn = document.getElementById("launcher-update-dismiss");
+
+const imageBanner = document.getElementById("image-update-banner");
+const imageUpdateNowBtn = document.getElementById("image-update-now");
+const imageUpdateSkipBtn = document.getElementById("image-update-skip");
+const imageDismissBtn = document.getElementById("image-update-dismiss");
+
+let imageRemoteDigest = "";
+
+async function checkLauncherUpdate() {
+  try {
+    const info = await invoke("check_launcher_update");
+    if (!info || !info.has_update) return;
+    launcherTextEl.textContent = `A new version (v${info.latest_version}) is available`;
+    launcherNotesEl.textContent = info.release_notes;
+    launcherOpenBtn.onclick = () =>
+      invoke("open_url", { url: info.release_url }).catch((err) =>
+        showError(errorMessage(err))
+      );
+    launcherBanner.hidden = false;
+  } catch {
+    // best-effort — no banner if the check itself rejects
+  }
+}
+
+launcherNotesToggle.addEventListener("click", () => {
+  launcherNotesEl.hidden = !launcherNotesEl.hidden;
+  launcherNotesToggle.textContent = launcherNotesEl.hidden
+    ? "View Release Notes"
+    : "Hide Release Notes";
+});
+
+launcherDismissBtn.addEventListener("click", () => {
+  launcherBanner.hidden = true;
+});
+
+async function checkImageUpdate() {
+  try {
+    const info = await invoke("check_image_update");
+    if (!info || !info.has_update) return;
+    imageRemoteDigest = info.remote_digest;
+    imageBanner.hidden = false;
+  } catch {
+    // best-effort — no banner if the check itself rejects
+  }
+}
+
+imageUpdateNowBtn.addEventListener("click", async () => {
+  imageUpdateNowBtn.disabled = true;
+  imageUpdateSkipBtn.disabled = true;
+  const originalLabel = imageUpdateNowBtn.textContent;
+  imageUpdateNowBtn.textContent = "Updating…";
+  try {
+    await invoke("pull_image");
+    await invoke("recreate_tracker");
+    imageBanner.hidden = true;
+    poll();
+  } catch (err) {
+    showError(errorMessage(err));
+  } finally {
+    imageUpdateNowBtn.disabled = false;
+    imageUpdateSkipBtn.disabled = false;
+    imageUpdateNowBtn.textContent = originalLabel;
+  }
+});
+
+imageUpdateSkipBtn.addEventListener("click", async () => {
+  try {
+    await invoke("skip_image_version", { digest: imageRemoteDigest });
+  } catch (err) {
+    showError(errorMessage(err));
+    return;
+  }
+  imageBanner.hidden = true;
+});
+
+imageDismissBtn.addEventListener("click", () => {
+  imageBanner.hidden = true;
+});
 
 if (!window.__TAURI__ || !window.__TAURI__.core) {
   // Opened outside the Tauri webview (e.g. a plain browser tab) — there is
@@ -193,4 +312,6 @@ if (!window.__TAURI__ || !window.__TAURI__.core) {
 } else {
   poll();
   setInterval(poll, POLL_INTERVAL_MS);
+  checkLauncherUpdate();
+  checkImageUpdate();
 }
