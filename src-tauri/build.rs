@@ -25,6 +25,8 @@ fn main () {
           "check_launcher_update",
           "check_image_update",
           "skip_image_version",
+          // window.rs
+          "resize_window",
         ]),
       ),
   )

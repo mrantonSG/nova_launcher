@@ -19,12 +19,14 @@
     </header>
 
     <main id="app-content">
-      <div class="status-row">
-        <span class="status-dot" id="status-dot"></span>
-        <span class="status-label" id="status-label" aria-live="polite">Checking status&hellip;</span>
-      </div>
+      <div class="status-group">
+        <div class="status-row">
+          <span class="status-dot" id="status-dot"></span>
+          <span class="status-label" id="status-label" aria-live="polite">Checking status&hellip;</span>
+        </div>
 
-      <p class="status-detail" id="status-detail"></p>
+        <p class="status-detail" id="status-detail"></p>
+      </div>
 
       <div class="action-row">
         <button class="btn btn-primary" id="primary-action" type="button" disabled>
@@ -36,26 +38,32 @@
 
       <div class="update-banner" id="launcher-update-banner" hidden>
         <div class="update-banner-row">
-          <span class="update-banner-text" id="launcher-update-text"></span>
-          <div class="update-banner-actions">
-            <button class="btn-link" id="launcher-notes-toggle" type="button">View Release Notes</button>
-            <button class="btn-link" id="launcher-update-open" type="button">Open Release Page</button>
-            <button class="update-banner-dismiss" id="launcher-update-dismiss" type="button" aria-label="Dismiss">&times;</button>
+          <div class="update-banner-body">
+            <span class="update-banner-text" id="launcher-update-text"></span>
+            <div class="update-banner-links">
+              <button class="btn-link" id="launcher-notes-toggle" type="button">View Release Notes</button>
+              <button class="btn-link" id="launcher-update-open" type="button">Open Release Page</button>
+            </div>
           </div>
+          <button class="update-banner-dismiss" id="launcher-update-dismiss" type="button" aria-label="Dismiss">&times;</button>
         </div>
         <div class="update-banner-notes" id="launcher-release-notes" hidden></div>
       </div>
 
       <div class="update-banner" id="image-update-banner" hidden>
         <div class="update-banner-row">
-          <span class="update-banner-text">An updated Nova image is available</span>
-          <div class="update-banner-actions">
-            <button class="btn-link" id="image-notes-toggle" type="button">View Release Notes</button>
-            <button class="btn-link" id="image-update-open" type="button">Open Release Page</button>
-            <button class="btn-link" id="image-update-now" type="button">Update Now</button>
-            <button class="btn-link" id="image-update-skip" type="button">Skip This Version</button>
-            <button class="update-banner-dismiss" id="image-update-dismiss" type="button" aria-label="Dismiss">&times;</button>
+          <div class="update-banner-body">
+            <span class="update-banner-text">An updated Nova image is available</span>
+            <div class="update-banner-choice">
+              <button class="btn btn-primary btn-sm" id="image-update-now" type="button">Update Now</button>
+              <button class="btn btn-secondary btn-sm" id="image-update-skip" type="button">Skip This Version</button>
+            </div>
+            <div class="update-banner-links">
+              <button class="btn-link" id="image-notes-toggle" type="button">View Release Notes</button>
+              <button class="btn-link" id="image-update-open" type="button">Open Release Page</button>
+            </div>
           </div>
+          <button class="update-banner-dismiss" id="image-update-dismiss" type="button" aria-label="Dismiss">&times;</button>
         </div>
         <div class="update-banner-notes" id="image-release-notes" hidden></div>
       </div>

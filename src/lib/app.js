@@ -237,6 +237,28 @@ const imageDismissBtn = document.getElementById("image-update-dismiss");
 
 let imageRemoteDigest = "";
 
+// --- Dynamic window resize -------------------------------------------
+//
+// Mirrors nova_manager.py's behavior of expanding the window when its log
+// viewer was shown: grow the window while either banner's release notes are
+// expanded, shrink back to the base size once both are collapsed again.
+// Matches the window's initial height in tauri.conf.json — keep both in
+// sync. 436 (not 420) leaves ~20px of breathing room under the tallest
+// single collapsed banner (the image-update banner, which carries an extra
+// Update Now/Skip row) paired with the longest status detail text
+// (docker_missing) — that combination left only ~4px of margin at 420.
+const WINDOW_HEIGHT_BASE = 436;
+const WINDOW_HEIGHT_EXPANDED = 700;
+
+function updateWindowHeight() {
+  const notesOpen =
+    (!launcherBanner.hidden && !launcherNotesEl.hidden) ||
+    (!imageBanner.hidden && !imageNotesEl.hidden);
+  invoke("resize_window", {
+    height: notesOpen ? WINDOW_HEIGHT_EXPANDED : WINDOW_HEIGHT_BASE,
+  }).catch((err) => showError(errorMessage(err)));
+}
+
 // Renders GitHub release-note markdown (a narrow, predictable subset —
 // headings, bold, bullet lists, paragraphs) to HTML. Escapes the input
 // first since this is untrusted text from a GitHub API response, then
@@ -324,10 +346,12 @@ launcherNotesToggle.addEventListener("click", () => {
   launcherNotesToggle.textContent = launcherNotesEl.hidden
     ? "View Release Notes"
     : "Hide Release Notes";
+  updateWindowHeight();
 });
 
 launcherDismissBtn.addEventListener("click", () => {
   launcherBanner.hidden = true;
+  updateWindowHeight();
 });
 
 async function checkImageUpdate() {
@@ -362,6 +386,7 @@ imageNotesToggle.addEventListener("click", () => {
   imageNotesToggle.textContent = imageNotesEl.hidden
     ? "View Release Notes"
     : "Hide Release Notes";
+  updateWindowHeight();
 });
 
 imageUpdateNowBtn.addEventListener("click", async () => {
@@ -373,6 +398,7 @@ imageUpdateNowBtn.addEventListener("click", async () => {
     await invoke("pull_image");
     await invoke("recreate_tracker");
     imageBanner.hidden = true;
+    updateWindowHeight();
     poll();
   } catch (err) {
     showError(errorMessage(err));
@@ -391,10 +417,12 @@ imageUpdateSkipBtn.addEventListener("click", async () => {
     return;
   }
   imageBanner.hidden = true;
+  updateWindowHeight();
 });
 
 imageDismissBtn.addEventListener("click", () => {
   imageBanner.hidden = true;
+  updateWindowHeight();
 });
 
 if (!window.__TAURI__ || !window.__TAURI__.core) {

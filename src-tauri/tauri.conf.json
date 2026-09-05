@@ -12,8 +12,9 @@
       {
         "label": "main",
         "title": "Nova DSO Tracker",
-        "width": 1024,
-        "height": 768
+        "width": 480,
+        "height": 436,
+        "resizable": false
       }
     ],
     "security": {

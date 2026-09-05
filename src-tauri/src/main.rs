@@ -4,6 +4,7 @@ mod actions;
 mod docker;
 mod launch;
 mod updates;
+mod window;
 
 // Bring every command function into scope so `generate_handler!` can reference
 // them by bare name. Each `#[tauri::command]` fn above is `pub`, so the
@@ -14,6 +15,7 @@ use actions::*;
 use docker::*;
 use launch::*;
 use updates::*;
+use window::*;
 
 fn main () {
   tauri::Builder::default()
@@ -41,6 +43,8 @@ fn main () {
       check_launcher_update,
       check_image_update,
       skip_image_version,
+      // Window control
+      resize_window,
     ])
     .run(tauri::generate_context!())
     .expect("error while running Nova DSO Tracker");

@@ -22,6 +22,21 @@
 
   --font-family: 'DM Sans', system-ui, sans-serif;
   --font-mono: 'DM Mono', 'Courier New', monospace;
+
+  --primary-light: #a8cdd8;
+  --primary-bg: #eaf4f8;
+  --bg-tertiary: #f7f5f2;
+  --border-light: #eeebe5;
+  --text-muted: #888888;
+  --text-faint: #aaaaaa;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md: 0 2px 8px rgba(0,0,0,0.08);
+  --hover-bg: #f0f7fa;
+
+  /* Spacing scale — use these steps for rhythm between layout blocks. */
+  --space-sm: 16px;
+  --space-md: 24px;
+  --space-lg: 32px;
 }
 
 * {
@@ -36,15 +51,19 @@ body {
 }
 
 body {
+  display: flex;
+  flex-direction: column;
   font-family: var(--font-family);
   background-color: var(--bg-primary);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
+  overflow: hidden;
 }
 
 .app-header {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
   padding: 14px 24px;
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
@@ -63,14 +82,23 @@ body {
 }
 
 main {
-  padding: 24px;
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-md) var(--space-md) 36px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
+  gap: var(--space-lg);
 }
 
 /* --- Status row ----------------------------------------------------- */
+
+.status-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+}
 
 .status-row {
   display: flex;
@@ -93,10 +121,13 @@ main {
 }
 
 .status-detail {
-  margin-top: 10px;
   font-size: 14px;
   color: var(--text-secondary);
   text-align: center;
+}
+
+.status-detail:empty {
+  display: none;
 }
 
 /* --- Action buttons -------------------------------------------------- */
@@ -104,14 +135,16 @@ main {
 .action-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-sm);
 }
 
 .btn {
+  appearance: none;
+  -webkit-appearance: none;
   font-family: var(--font-family);
   font-size: 15px;
-  font-weight: 500;
-  padding: 10px 24px;
+  font-weight: 600;
+  padding: 12px 32px;
   border-radius: 8px;
   border: 1px solid transparent;
   display: inline-flex;
@@ -131,21 +164,32 @@ main {
 
 .btn-primary {
   background-color: var(--primary-color);
-  color: var(--text-primary);
+  color: #ffffff;
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: var(--primary-hover);
+  filter: brightness(0.9);
+}
+
+.btn-sm {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 6px;
 }
 
 .btn-secondary {
-  background-color: var(--bg-secondary);
-  color: var(--text-secondary);
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid;
   border-color: var(--border-color);
+  border-color: #d0cdc8; /* --border-color resolves too faint against --bg-primary here */
+  font-weight: 500;
 }
 
 .btn-secondary:hover:not(:disabled) {
-  color: var(--text-primary);
+  background-color: var(--bg-tertiary);
 }
 
 /* Small spinner shown in the primary button while initializing/busy.
@@ -170,37 +214,57 @@ main {
 
 .update-banner {
   width: 100%;
-  max-width: 560px;
+  max-width: 400px;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 10px 14px;
+  padding: 14px;
+  box-shadow: var(--shadow-sm);
 }
 
 .update-banner-row {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
+  align-items: flex-start;
   gap: 10px;
 }
 
+.update-banner-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
 .update-banner-text {
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--text-primary);
 }
 
-.update-banner-actions {
+.update-banner-choice {
   display: flex;
   align-items: center;
+  justify-content: center;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
+}
+
+.update-banner-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 14px;
 }
 
 .btn-link {
   font-family: var(--font-family);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
-  color: var(--primary-hover);
+  color: var(--text-secondary);
   background: none;
   border: none;
   padding: 0;
@@ -213,6 +277,7 @@ main {
 }
 
 .update-banner-dismiss {
+  flex-shrink: 0;
   font-size: 16px;
   line-height: 1;
   color: var(--text-secondary);
@@ -268,7 +333,7 @@ main {
 /* --- Error surface ---------------------------------------------------- */
 
 .error-box {
-  max-width: 560px;
+  max-width: 400px;
   font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.5;
@@ -277,6 +342,7 @@ main {
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 10px 14px;
+  box-shadow: var(--shadow-sm);
   white-space: pre-wrap;
   word-break: break-word;
 }
