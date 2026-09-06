@@ -113,8 +113,14 @@ pub async fn get_app_state() -> String {
 /// Search `PATH` for an executable named `binary`.
 fn which_in_path(binary: &str) -> Option<PathBuf> {
     let path_var = env::var_os("PATH")?;
+    // Windows executables carry an extension (Docker Desktop's CLI ships as
+    // `docker.exe`); a bare `docker` file never exists there.
+    #[cfg(target_os = "windows")]
+    let file_name = format!("{binary}.exe");
+    #[cfg(not(target_os = "windows"))]
+    let file_name = binary.to_string();
     for dir in env::split_paths(&path_var) {
-        let candidate = dir.join(binary);
+        let candidate = dir.join(&file_name);
         if candidate.is_file() && is_executable(&candidate) {
             return Some(candidate);
         }

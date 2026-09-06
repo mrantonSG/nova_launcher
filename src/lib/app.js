@@ -96,10 +96,12 @@ let busyLabel = "";
 let polling = false;
 
 // While set to a future timestamp, poll() (both the setInterval tick and any
-// re-poll-after-action) is a no-op. Used only by launch_docker below, whose
-// `open -a Docker` returns almost instantly — long before the daemon is
-// actually up — so an immediate re-poll would still see docker_stopped and
-// the button would flash back to "Launch Docker" for a fraction of a second.
+// re-poll-after-action) is a no-op. Used only by launch_docker below, which
+// on every platform returns almost instantly — long before the daemon is
+// actually up (macOS's `open -a Docker` just enqueues an open request;
+// Windows/Linux spawn Docker and don't wait for it) — so an immediate
+// re-poll would still see docker_stopped and the button would flash back to
+// "Launch Docker" for a fraction of a second.
 let pollSuppressedUntil = 0;
 
 function render() {
@@ -202,9 +204,9 @@ async function runAction(action, labelWhileBusy, { minDurationMs = 0 } = {}) {
 primaryBtn.addEventListener("click", () => {
   const cfg = STATES[currentState];
   if (!cfg || !cfg.run) return;
-  // launch_docker returns almost immediately (it just fires `open -a
-  // Docker`) — the daemon isn't actually up yet, so give it a grace period
-  // before trusting get_app_state() again. See pollSuppressedUntil above.
+  // launch_docker returns almost immediately on every platform — the
+  // daemon isn't actually up yet, so give it a grace period before trusting
+  // get_app_state() again. See pollSuppressedUntil above.
   const opts = currentState === "docker_stopped" ? { minDurationMs: 5000 } : {};
   runAction(cfg.run, cfg.busyLabel, opts);
 });
