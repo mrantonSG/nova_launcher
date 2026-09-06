@@ -2,6 +2,38 @@
    Source of truth: the Nova web app design system; the palette
    mirrors the CustomTkinter theme in assets/nova_theme.json. */
 
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/DMSans-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./fonts/DMSans-Medium.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./fonts/DMSans-Bold.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/DMMono-Regular.woff2') format('woff2');
+}
+
 :root {
   --primary-color: #83b4c5; /* Nova brand teal */
   --primary-hover: #6a9eb0;
