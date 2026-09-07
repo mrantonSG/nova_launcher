@@ -181,6 +181,15 @@ pub struct ImageUpdateInfo {
     /// GitHub release page URL for the Nova app's latest release. Same
     /// population rule as `release_notes`.
     pub release_url: String,
+    /// `org.opencontainers.image.version` label of the locally pulled
+    /// image, without a leading `v`. Empty if no local image is found, the
+    /// label is missing (older images predate the version-label fix), or
+    /// the check failed. Display-only — `has_update` stays digest-based.
+    pub local_version: String,
+    /// Version of the Nova app repo's latest GitHub release (its `tag_name`
+    /// with a leading `v` stripped, same convention as the launcher's own
+    /// version comparison). Same population rule as `release_notes`.
+    pub remote_version: String,
 }
 
 fn no_image_update() -> ImageUpdateInfo {
@@ -190,6 +199,8 @@ fn no_image_update() -> ImageUpdateInfo {
         local_digest: String::new(),
         release_notes: String::new(),
         release_url: String::new(),
+        local_version: String::new(),
+        remote_version: String::new(),
     }
 }
 
@@ -224,15 +235,17 @@ pub async fn check_image_update() -> Result<ImageUpdateInfo, String> {
         }
     }
 
-    // Release notes are a nice-to-have on top of the digest comparison
-    // above, which is already complete by this point: only fetch them when
-    // there's actually an update to report, and never let a failure here
-    // turn into a failed command — just leave them empty.
-    let (release_notes, release_url) = if has_update {
+    // Release notes/version are a nice-to-have on top of the digest
+    // comparison above, which is already complete by this point: only fetch
+    // them when there's actually an update to report, and never let a
+    // failure here turn into a failed command — just leave them empty.
+    let (release_notes, release_url, remote_version) = if has_update {
         fetch_nova_app_release_info().await
     } else {
-        (String::new(), String::new())
+        (String::new(), String::new(), String::new())
     };
+
+    let local_version = get_local_image_version().await.unwrap_or_default();
 
     Ok(ImageUpdateInfo {
         has_update,
@@ -240,17 +253,29 @@ pub async fn check_image_update() -> Result<ImageUpdateInfo, String> {
         local_digest: local_digest.unwrap_or_default(),
         release_notes,
         release_url,
+        local_version,
+        remote_version,
     })
 }
 
-/// Fetches the Nova app repo's latest release notes and URL for the update
-/// banner. Best-effort: any failure (network, timeout, parse) yields empty
-/// strings rather than propagating an error, since `has_update` must still
-/// reflect the digest comparison regardless of whether this succeeds.
-async fn fetch_nova_app_release_info() -> (String, String) {
+/// Fetches the Nova app repo's latest release notes, URL, and version for
+/// the update banner. Best-effort: any failure (network, timeout, parse)
+/// yields empty strings rather than propagating an error, since
+/// `has_update` must still reflect the digest comparison regardless of
+/// whether this succeeds.
+async fn fetch_nova_app_release_info() -> (String, String, String) {
     match tokio::task::spawn_blocking(|| fetch_latest_github_release(NOVA_APP_REPO)).await {
-        Ok(Ok(release)) => (release.body, release.html_url),
-        _ => (String::new(), String::new()),
+        Ok(Ok(release)) => {
+            // Same "v" stripping convention as `fetch_latest_update`'s
+            // launcher version comparison.
+            let version = release
+                .tag_name
+                .strip_prefix('v')
+                .unwrap_or(&release.tag_name)
+                .to_string();
+            (release.body, release.html_url, version)
+        }
+        _ => (String::new(), String::new(), String::new()),
     }
 }
 
@@ -291,6 +316,32 @@ async fn get_local_image_digest() -> Option<String> {
         return None;
     }
     extract_repo_digest(&stdout)
+}
+
+/// Version of the locally pulled tracker image, via `docker image inspect`'s
+/// `org.opencontainers.image.version` label. `None` on any failure, if no
+/// local image exists, or if the label is empty/missing — which is expected
+/// for any image pulled before the version-label fix shipped on the Nova
+/// side, so this must degrade gracefully rather than error.
+async fn get_local_image_version() -> Option<String> {
+    let mut cmd = tokio::process::Command::new("docker");
+    cmd.arg("image")
+        .arg("inspect")
+        .arg(DOCKER_IMAGE_FULL)
+        .arg("--format")
+        .arg(r#"{{index .Config.Labels "org.opencontainers.image.version"}}"#);
+    let output = tokio::time::timeout(Duration::from_secs(5), cmd.output())
+        .await
+        .ok()?
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if stdout.is_empty() || stdout == "<no value>" {
+        return None;
+    }
+    Some(stdout)
 }
 
 /// Parses a `.RepoDigests` entry (`"image@sha256:..."`) down to just the

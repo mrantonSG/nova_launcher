@@ -116,7 +116,10 @@ function render() {
   } else {
     labelEl.textContent = cfg.label;
     dotEl.style.backgroundColor = cfg.dotColor;
-    detailEl.textContent = cfg.detail;
+    detailEl.textContent =
+      currentState === "running" && runningImageDetail
+        ? runningImageDetail
+        : cfg.detail;
     primaryLabelEl.textContent = busy ? busyLabel : cfg.actionLabel;
   }
 
@@ -230,6 +233,7 @@ const launcherOpenBtn = document.getElementById("launcher-update-open");
 const launcherDismissBtn = document.getElementById("launcher-update-dismiss");
 
 const imageBanner = document.getElementById("image-update-banner");
+const imageTextEl = document.getElementById("image-update-text");
 const imageNotesToggle = document.getElementById("image-notes-toggle");
 const imageNotesEl = document.getElementById("image-release-notes");
 const imageOpenBtn = document.getElementById("image-update-open");
@@ -238,6 +242,29 @@ const imageUpdateSkipBtn = document.getElementById("image-update-skip");
 const imageDismissBtn = document.getElementById("image-update-dismiss");
 
 let imageRemoteDigest = "";
+
+// Docker Hub reference for the tracker image, shown in the running-state
+// detail line when there's no local_version label yet (matches DOCKER_IMAGE
+// + DOCKER_TAG in the original CustomTkinter app's nova_manager.py).
+const DOCKER_IMAGE_REF = "mrantonsg/nova-dso-tracker:latest";
+
+// Set once check_image_update() resolves, from local_version/local_digest —
+// both are populated regardless of has_update. Used to override the
+// "running" state's (otherwise empty) status-detail line. Stays "" if the
+// check hasn't resolved yet or found nothing, in which case render() just
+// leaves the detail line empty rather than showing broken/partial text.
+let runningImageDetail = "";
+
+// local_version is preferred once images carry the version label; digest
+// stays as a secondary fallback for images pulled before that shipped.
+function formatRunningImageDetail(info) {
+  if (info.local_version) return `Running v${info.local_version}`;
+  if (info.local_digest) {
+    const shortDigest = info.local_digest.replace(/^sha256:/, "").slice(0, 12);
+    return `Image: ${DOCKER_IMAGE_REF}  •  ${shortDigest}`;
+  }
+  return "";
+}
 
 // --- Dynamic window resize -------------------------------------------
 //
@@ -359,8 +386,20 @@ launcherDismissBtn.addEventListener("click", () => {
 async function checkImageUpdate() {
   try {
     const info = await invoke("check_image_update");
-    if (!info || !info.has_update) return;
+    if (!info) return;
+
+    // local_version/local_digest are populated regardless of has_update, so
+    // the running-state detail line reflects them even when there's no
+    // update to report.
+    runningImageDetail = formatRunningImageDetail(info);
+    render();
+
+    if (!info.has_update) return;
     imageRemoteDigest = info.remote_digest;
+
+    imageTextEl.textContent = info.remote_version
+      ? `Nova v${info.remote_version} is available`
+      : "An updated Nova image is available";
 
     // Reset each run rather than trusting the DOM's initial `hidden` —
     // this may be a re-check after a prior run left notes expanded.
