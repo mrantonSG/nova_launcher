@@ -276,8 +276,16 @@ function formatRunningImageDetail(info) {
 // single collapsed banner (the image-update banner, which carries an extra
 // Update Now/Skip row) paired with the longest status detail text
 // (docker_missing) — that combination left only ~4px of margin at 420.
+//
+// WINDOW_HEIGHT_EXPANDED = WINDOW_HEIGHT_BASE (436, fixed chrome present
+// whether or not notes are expanded) + the .update-banner-notes box's own
+// footprint (10px margin-top + 1px border-top + 10px padding-top + its
+// 340px max-height content cap + 10px margin-bottom = 371px) + ~20px
+// breathing room, matching BASE's buffer. Since notes are now hard-capped
+// at max-height: 340px with overflow-y: auto, this is a true worst case
+// regardless of release-note content length.
 const WINDOW_HEIGHT_BASE = 436;
-const WINDOW_HEIGHT_EXPANDED = 700;
+const WINDOW_HEIGHT_EXPANDED = 827;
 
 function updateWindowHeight() {
   const notesOpen =
@@ -302,9 +310,46 @@ function renderReleaseNotes(text) {
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
 
+  // GitHub's known asset domains for release-body images.
+  const ALLOWED_IMG_PREFIXES = [
+    "https://github.com/user-attachments/",
+    "https://user-images.githubusercontent.com/",
+  ];
+
+  const getAttr = (tag, name) => {
+    const m = tag.match(new RegExp(`\\b${name}\\s*=\\s*"([^"]*)"|\\b${name}\\s*=\\s*'([^']*)'`, "i"));
+    if (!m) return null;
+    return m[1] !== undefined ? m[1] : m[2];
+  };
+
+  // Pull out <img> tags before escaping: validate src against GitHub's
+  // asset domains, keep only src/width/height/alt, and stash the
+  // rebuilt tag behind a placeholder so escapeHtml() can't touch it.
+  const imgMap = new Map();
+  let imgIndex = 0;
+  const withImgPlaceholders = (text || "").replace(/<img\b[^>]*>/gi, (match) => {
+    const src = getAttr(match, "src");
+    if (!src || !ALLOWED_IMG_PREFIXES.some((prefix) => src.startsWith(prefix))) {
+      return "";
+    }
+    const width = getAttr(match, "width");
+    const height = getAttr(match, "height");
+    const alt = getAttr(match, "alt");
+
+    let clean = `<img src="${escapeHtml(src)}"`;
+    if (width !== null) clean += ` width="${escapeHtml(width)}"`;
+    if (height !== null) clean += ` height="${escapeHtml(height)}"`;
+    if (alt !== null) clean += ` alt="${escapeHtml(alt)}"`;
+    clean += ` loading="lazy">`;
+
+    const token = `\u0000IMG${imgIndex++}\u0000`;
+    imgMap.set(token, clean);
+    return token;
+  });
+
   const applyInline = (line) => line.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
 
-  const lines = escapeHtml(text || "").split(/\r?\n/);
+  const lines = escapeHtml(withImgPlaceholders).split(/\r?\n/);
   const html = [];
   let list = [];
   let para = [];
@@ -351,7 +396,11 @@ function renderReleaseNotes(text) {
   flushList();
   flushPara();
 
-  return html.join("");
+  let result = html.join("");
+  for (const [token, tag] of imgMap) {
+    result = result.split(token).join(tag);
+  }
+  return result;
 }
 
 async function checkLauncherUpdate() {

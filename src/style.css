@@ -331,6 +331,9 @@ main {
   line-height: 1.5;
   color: var(--text-secondary);
   word-break: break-word;
+  max-height: 340px;
+  overflow-y: auto;
+  margin-bottom: 10px;
 }
 
 .update-banner-notes h4 {
@@ -360,6 +363,12 @@ main {
 
 .update-banner-notes li {
   margin-bottom: 2px;
+}
+
+.update-banner-notes img {
+  max-width: 100%;
+  height: auto;
+  display: block;
 }
 
 /* --- Error surface ---------------------------------------------------- */
