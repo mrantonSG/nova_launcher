@@ -1,3 +1,7 @@
+> **This project is no longer maintained.**
+> Mac users: use [Nova for Mac](https://nova-tracker.com/#nh-mac). Everyone else: follow the [Self-host guide](https://nova-tracker.com/self-host/).
+> Existing installs keep working. To update: `cd ~/nova && docker compose pull && docker compose up -d`
+> 
 # Nova DSO Tracker Launcher
 
 <img src="nova_logo.png" alt="Nova DSO Tracker Logo" width="120">
